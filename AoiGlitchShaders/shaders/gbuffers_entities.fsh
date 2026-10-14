@@ -35,7 +35,7 @@ void main() {
         // stays gray: lit by the luminance of the lightmap only
         col *= mix(1.0, luma(texture2D(lightmap, lmcoord).rgb), 0.6);
     } else {
-        col = dreamLighting(albedo, lmcoord, 1.0, normalize(viewNormal), playerPos, 0.0, gl_FragCoord.xy);
+        col = dreamLighting(albedo, lmcoord, 1.0, normalize(viewNormal), playerPos, 0.0, gl_FragCoord.xy, 1.0);
     }
     gl_FragData[0] = vec4(col, base.a);
 }

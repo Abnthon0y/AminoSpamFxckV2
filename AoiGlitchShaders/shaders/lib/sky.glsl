@@ -299,8 +299,19 @@ vec3 skyTimeOfDay(vec3 col, vec3 dir, vec3 sunDir, float rain) {
     float toSun = max(dot(dir, sunDir), 0.0);
     float warmZone = sunset * (0.35 + 0.65 * pow(toSun, 3.0)) * (1.0 - smoothstep(0.0, 0.7, dir.y));
     col = mix(col, col * vec3(1.06, 0.86, 0.80) + vec3(0.06, 0.02, 0.03), warmZone);
-    // night: remap 0..1 into a navy range, keeps the pattern readable
+#if SKY_NIGHT_STYLE == 1
+    // night = the palette flips: neutral (white / grey) elements turn black,
+    // black ink turns pale, saturated blues only darken a little, and the
+    // yellow/orange rims stay as dim neon.
+    float mx = max(col.r, max(col.g, col.b));
+    float sat = (mx - min(col.r, min(col.g, col.b))) / max(mx, 1e-3);
+    vec3 neutralNight = pow(vec3(1.0 - luma(col)), vec3(1.25)) * vec3(0.78, 0.82, 0.95);
+    vec3 colourNight = col * vec3(0.66, 0.70, 0.78);
+    vec3 night = mix(neutralNight, colourNight, smoothstep(0.25, 0.55, sat));
+#else
+    // night: remap 0..1 into a navy range
     vec3 night = mix(vec3(0.010, 0.014, 0.055), vec3(0.25, 0.27, 0.40), col);
+#endif
     col = mix(night, col, day);
     col = mix(col, vec3(luma(col)) * vec3(0.92, 0.95, 1.0) * 0.85, rain * 0.75);
     return col;
@@ -359,7 +370,7 @@ vec3 getCustomSky(vec3 dir, vec3 sunDir, float time, int style, float mixAmt,
 
 #ifdef SKY_STARS
     float night = 1.0 - smoothstep(-0.20, 0.05, sunDir.y);
-    col += vec3(0.9, 0.93, 1.0) * skyStars(dir, time) * night * blue * (1.0 - rain) * (1.0 - horizon);
+    col += vec3(0.9, 0.93, 1.0) * skyStars(dir, time) * night * (1.0 - rain) * (1.0 - horizon);
 #endif
 
     float cover;

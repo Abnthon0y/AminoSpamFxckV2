@@ -24,7 +24,7 @@ void main() {
     albedo.rgb *= glcolor.rgb;
 
     vec3 col = dreamLighting(albedo.rgb, lmcoord, glcolor.a, normalize(viewNormal),
-                             playerPos, foliage, gl_FragCoord.xy);
+                             playerPos, foliage, gl_FragCoord.xy, 1.0);
     // light sources push their bright texels a bit higher -> they bloom
     col *= 1.0 + emissive * 0.6 * smoothstep(0.5, 0.9, luma(albedo.rgb));
 

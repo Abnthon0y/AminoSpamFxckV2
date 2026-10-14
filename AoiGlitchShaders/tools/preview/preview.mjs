@@ -140,6 +140,8 @@ const scenes = [
   { name: "sky_text_ink_windows", main: SKY_MAIN, opts: { SKY_TEXT: 1 }, style: 1, cam: [-75, 18, 70, 0], sun: SUN_DAY, fog: FOG_DAY },
   { name: "sky_sunset",        main: SKY_MAIN, opts: { SKY_TEXT: 1 }, style: 2, mix: 0.3, cam: [-5, 12, 85, 0], sun: SUN_SET, fog: FOG_SET },
   { name: "sky_night",         main: SKY_MAIN, opts: { SKY_TEXT: 1 }, style: 0, cam: [0, 60, 100, 0], sun: SUN_NIGHT, fog: FOG_NIGHT },
+  { name: "sky_night_ink",     main: SKY_MAIN, opts: { SKY_TEXT: 1 }, style: 1, cam: [-75, 30, 90, 0], sun: SUN_NIGHT, fog: FOG_NIGHT },
+  { name: "sky_night_mix",     main: SKY_MAIN, opts: { SKY_TEXT: 1 }, style: 2, mix: 0.45, cam: [0, 80, 110, 0], sun: SUN_NIGHT, fog: FOG_NIGHT },
   { name: "water_marble",      main: WATER_MAIN, opts: {}, style: 0, cam: [30, -38, 75, 6], sun: SUN_DAY, fog: FOG_DAY },
   { name: "water_caustics",    main: WATER_MAIN, opts: {}, style: 1, cam: [30, -38, 75, 6], sun: SUN_DAY, fog: FOG_DAY },
   { name: "water_currents",    main: WATER_MAIN, opts: {}, style: 2, cam: [30, -38, 75, 6], sun: SUN_DAY, fog: FOG_DAY },

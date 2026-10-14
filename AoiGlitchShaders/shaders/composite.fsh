@@ -1,5 +1,5 @@
 #version 120
-/* AoiGlitch — composite: pastel fog/haze + Japanese text on the sky.
+/* AoiGlitch — composite: pastel fog/haze, Japanese text on the sky, light shafts.
 
    Buffer setup (parsed by Iris/OptiFine from this comment):
    const int colortex0Format = RGBA16F;
@@ -33,6 +33,29 @@ uniform sampler2D colortex12;
 #endif
 
 varying vec2 texcoord;
+
+#ifdef GODRAYS
+// Screen-space light shafts (an approximation of volumetric scattering):
+// march from the pixel towards the sun (or moon) on screen and count how much
+// open sky (depth == 1) lies on the way. Trees, terrain and the hand block
+// it, so soft beams fall through every gap. Returns 0..1.
+float lightShafts(vec2 uv, vec2 lightUv) {
+    const int STEPS = 20;
+    vec2 delta = (lightUv - uv) / float(STEPS);
+    vec2 suv = uv + delta * ign(gl_FragCoord.xy);        // dithered start, no banding
+    float acc = 0.0;
+    float wsum = 0.0;
+    float w = 1.0;
+    for (int i = 0; i < STEPS; i++) {
+        float inside = step(0.0, suv.x) * step(suv.x, 1.0) * step(0.0, suv.y) * step(suv.y, 1.0);
+        acc += step(0.99999, texture2D(depthtex0, suv).r) * inside * w;
+        wsum += w;
+        w *= 0.94;                                        // nearer samples count more
+        suv += delta;
+    }
+    return acc / wsum;
+}
+#endif
 
 void main() {
     vec3 col = texture2D(colortex0, texcoord).rgb;
@@ -78,6 +101,24 @@ void main() {
         col = mix(col, mix(vec3(1.0), col, txt.z), txt.y * mask * SKY_TEXT_OPACITY);
 #endif
     }
+
+#ifdef GODRAYS
+    vec3 lightV = normalize(shadowLightPosition);         // sun by day, moon by night
+    vec4 lc = gbufferProjection * vec4(lightV * 100.0, 1.0);
+    if (lc.w > 0.0 && isEyeInWater == 0) {
+        float sunH = dot(normalize(sunPosition), normalize(upPosition));
+        float day = smoothstep(-0.10, 0.15, sunH);
+        float rays = lightShafts(texcoord, lc.xy / lc.w * 0.5 + 0.5);
+        // strongest when looking towards the light, fades away from it
+        float facing = pow(max(dot(normalize(vp.xyz), lightV), 0.0), 4.0);
+        // over open sky the bloom already glows: keep only a faint veil there,
+        // the beams are meant for the air in front of trees and terrain
+        float onSky = step(1.0, depth);
+        vec3 rayCol = sunLightColor(sunH) * mix(0.25, 1.0, day);
+        col += rayCol * rays * facing * mix(1.0, 0.3, onSky)
+             * GODRAYS_STRENGTH * 0.4 * (1.0 - rainStrength);
+    }
+#endif
 
     gl_FragData[0] = vec4(col, 1.0);
 }

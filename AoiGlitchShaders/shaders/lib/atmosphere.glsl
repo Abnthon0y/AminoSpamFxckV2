@@ -5,6 +5,16 @@
    Needs: common.glsl, settings.glsl
    ========================================================================= */
 
+// Colour of the direct light (sunH = sine of the sun elevation):
+// golden at sunrise/sunset, warm white at noon, cool blue moonlight at night.
+vec3 sunLightColor(float sunH) {
+    vec3 golden = vec3(1.00, 0.70, 0.50);
+    vec3 noon   = vec3(1.00, 0.96, 0.90);
+    vec3 moon   = vec3(0.62, 0.72, 1.00);
+    vec3 sun = mix(golden, noon, smoothstep(0.02, 0.45, sunH));
+    return mix(moon, sun, smoothstep(-0.08, 0.04, sunH));
+}
+
 // Pastel haze colour. Starts from the vanilla fog colour (so it follows the
 // biome, the dimension, the weather and the time of day), pushes it towards
 // pastel and adds a warm forward-scattering lobe around the sun (image 10).
@@ -29,7 +39,7 @@ vec3 getHazeColor(vec3 worldDir, vec3 sunDir, vec3 fogCol, float rain) {
 //  * plus a smoothstep "by depth" that dissolves everything before the
 //    render-distance edge, so far chunks melt into the sky (image 11).
 float getFogFactor(float dist, float worldY, float farPlane, float rain) {
-    float density = 0.0032 * FOG_DENSITY * (1.0 + 2.5 * rain);
+    float density = 0.0024 * FOG_DENSITY * (1.0 + 2.5 * rain);
     float heightFalloff = exp(-max(worldY - 62.0, 0.0) * 0.012);
     float f = 1.0 - exp(-dist * density * mix(0.45, 1.0, heightFalloff));
     f = max(f, smoothstep(farPlane * 0.55, farPlane * 0.98, dist) * step(0.001, FOG_DENSITY));

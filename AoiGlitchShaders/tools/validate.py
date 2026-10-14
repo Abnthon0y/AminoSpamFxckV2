@@ -68,9 +68,11 @@ def build(program_path, options, iris):
 VARIANTS = [
     {},
     {"SKY_STYLE": 0, "SKY_TEXT": 2, "WATER_STYLE": 1, "NOISE_STYLE": 0, "SKY_BURST_CENTER": 1},
-    {"SKY_STYLE": 1, "SKY_TEXT": 0, "WATER_STYLE": 2, "NOISE_STYLE": 1, "SHADOWS": False, "BLOOM": False},
-    {"SKY_STYLE": 3, "WATER_STYLE": 3, "PIXELATION": False, "SKY_DROPS": False, "SKY_WINDOWS": False,
-     "WAVING_PLANTS": False, "JELLY_LEAVES": False, "PLAYER_GLITCH": False, "GLITCH_ALL_ENTITIES": True},
+    {"SKY_STYLE": 1, "SKY_TEXT": 0, "WATER_STYLE": 2, "NOISE_STYLE": 1, "SHADOWS": False, "BLOOM": False,
+     "PIXELATION": True, "SKY_NIGHT_STYLE": 0},
+    {"SKY_STYLE": 3, "WATER_STYLE": 3, "SKY_DROPS": False, "SKY_WINDOWS": False,
+     "WAVING_PLANTS": False, "JELLY_LEAVES": False, "PLAYER_GLITCH": False, "GLITCH_ALL_ENTITIES": True,
+     "GODRAYS": False, "LIGHT_PATCHES": False, "TORCH_FLICKER": False},
 ]
 
 

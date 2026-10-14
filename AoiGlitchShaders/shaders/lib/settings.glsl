@@ -20,6 +20,7 @@
 #define SKY_WINDOWS           // blue sky "windows" of image 2
 #define SUN_SIZE 1.0          // [0.5 0.75 1.0 1.25 1.5 2.0]
 #define SKY_STARS             // procedural stars at night
+#define SKY_NIGHT_STYLE 1     // [0 1] 0 dimmed palette, 1 inverted: white turns black, blue darkens
 
 /* ----------------------- Japanese glitch text --------------------------- */
 #define SKY_TEXT 1            // [0 1 2] 0 off, 1 texture atlas, 2 procedural pseudo-kanji
@@ -55,7 +56,7 @@
 #define WIND_SPEED 1.0        // [0.25 0.5 0.75 1.0 1.5 2.0]
 
 /* ----------------------------- Pixelation ------------------------------- */
-#define PIXELATION
+//#define PIXELATION        // off by default; turn on for the distance mosaic
 #define PIXEL_START_DISTANCE 48.0  // [16.0 32.0 48.0 64.0 96.0 128.0]
 #define PIXEL_END_DISTANCE 192.0   // [96.0 128.0 192.0 256.0 384.0 512.0]
 #define PIXEL_MAX_SIZE 16.0        // [4.0 8.0 16.0 32.0]
@@ -73,11 +74,19 @@
 #define VIGNETTE 0.22         // [0.0 0.1 0.22 0.35 0.5]
 #define FILM_GRAIN 0.025      // [0.0 0.015 0.025 0.04 0.06]
 
+/* ---------------------------- Living light ------------------------------ */
+#define LIGHT_PATCHES               // soft patches of light/shade drifting with the wind
+#define LIGHT_PATCHES_STRENGTH 0.35 // [0.15 0.25 0.35 0.5 0.65]
+#define GODRAYS                     // soft light shafts from the sun / moon
+#define GODRAYS_STRENGTH 0.5        // [0.2 0.35 0.5 0.75 1.0]
+#define TORCH_FLICKER               // warm, gently breathing light around torches
+#define FOLIAGE_GLOW 1.0            // [0.0 0.5 1.0 1.5 2.0] backlit leaves and grass
+
 /* ------------------------------ Shadows --------------------------------- */
 #define SHADOWS
-#define SHADOW_DARKNESS 0.38  // [0.15 0.25 0.38 0.5 0.65] how dark a full shadow gets
-#define SHADOW_SOFTNESS 1.0   // [0.25 0.5 1.0 1.5 2.0 3.0] penumbra width
-#define AO_STRENGTH 0.55      // [0.0 0.25 0.55 0.75 1.0]
+#define SHADOW_DARKNESS 0.34  // [0.15 0.25 0.34 0.45 0.55 0.65] how dark a full shadow gets
+#define SHADOW_SOFTNESS 1.6   // [0.5 1.0 1.6 2.0 2.5 3.0] penumbra width
+#define AO_STRENGTH 0.5       // [0.0 0.25 0.5 0.75 1.0]
 
 const int shadowMapResolution = 2048; // [1024 2048 3072 4096]
 const float shadowDistance = 128.0;   // [64.0 96.0 128.0 160.0 192.0 256.0]

@@ -52,6 +52,6 @@ void main() {
 
     vec4 albedo = texture2D(texture, texcoord) * vec4(glcolor.rgb, 1.0);
     if (albedo.a < 0.01) discard;
-    vec3 col = dreamLighting(albedo.rgb, lmcoord, 1.0, n, playerPos, 0.0, gl_FragCoord.xy);
+    vec3 col = dreamLighting(albedo.rgb, lmcoord, 1.0, n, playerPos, 0.0, gl_FragCoord.xy, 1.0);
     gl_FragData[0] = vec4(col, albedo.a);
 }
