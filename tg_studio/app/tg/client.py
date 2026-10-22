@@ -9,8 +9,11 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import mimetypes
+import time
+from datetime import datetime, timezone
 import re
 import secrets
 from pathlib import Path
@@ -42,6 +45,10 @@ class TelegramAccount:
         self.client = None
         self._phone_code_hash = None
         self._phone = None
+        self._qr = None
+        self._qr_task = None
+        self._qr_state: dict | None = None
+        self._client_key = None
 
     def _require_lib(self):
         try:
@@ -55,11 +62,20 @@ class TelegramAccount:
         s = load_settings()["telegram"]
         if not s.get("api_id") or not s.get("api_hash"):
             raise TGError("Укажи api_id и api_hash (https://my.telegram.org → API development tools)")
+        key = (str(s["api_id"]).strip(), s["api_hash"].strip())
+        if self.client is not None and self._client_key != key:  # api_id/hash поменяли — новый клиент
+            await self.client.disconnect()
+            self.client = None
+        self._client_key = key
         if self.client is None:
             self.client = TelegramClient(str(DATA_DIR / "tg_session"), int(s["api_id"]), s["api_hash"],
                                          device_model="TG Studio", app_version="1.0")
         if not self.client.is_connected():
-            await self.client.connect()
+            try:
+                await asyncio.wait_for(self.client.connect(), 25)
+            except (asyncio.TimeoutError, OSError) as e:
+                raise TGError("Не удалось подключиться к серверам Telegram за 25 c. Проверь интернет; "
+                              "если Telegram у тебя работает только через VPN — включи VPN на весь компьютер.") from e
         return self.client
 
     async def status(self) -> dict:
@@ -75,23 +91,102 @@ class TelegramAccount:
 
     async def send_code(self, phone: str) -> dict:
         cli = await self._get_client()
-        res = await cli.send_code_request(phone)
+        phone = normalize_phone(phone)
+        try:
+            res = await asyncio.wait_for(cli.send_code_request(phone), 40)
+        except asyncio.TimeoutError as e:
+            raise TGError("Telegram не ответил на запрос кода за 40 c — попробуй ещё раз или войди по QR-коду") from e
+        except Exception as e:  # noqa: BLE001
+            raise TGError(tg_error_text(e)) from e
+        if type(res).__name__ == "SentCodeSuccess":
+            return {"sent": False, "authorized": True, **(await self.status())}
         self._phone, self._phone_code_hash = phone, res.phone_code_hash
-        return {"sent": True}
+        return _sent_info(res)
+
+    async def resend_code(self) -> dict:
+        """«Код не пришёл» — Telegram пришлёт другим способом (SMS / звонок), если он доступен."""
+        from telethon.tl.functions.auth import ResendCodeRequest
+        if not self._phone_code_hash:
+            raise TGError("Сначала нажми «Получить код»")
+        cli = await self._get_client()
+        try:
+            res = await cli(ResendCodeRequest(self._phone, self._phone_code_hash))
+        except Exception as e:  # noqa: BLE001
+            raise TGError(tg_error_text(e)) from e
+        self._phone_code_hash = res.phone_code_hash
+        return _sent_info(res)
 
     async def sign_in(self, code: str | None = None, password: str | None = None) -> dict:
         from telethon.errors import SessionPasswordNeededError
         cli = await self._get_client()
+        code = re.sub(r"\D", "", code or "") or None
         try:
             if password and not code:
                 await cli.sign_in(password=password)
             else:
+                if not self._phone_code_hash:
+                    raise TGError("Сначала нажми «Получить код» (или войди по QR-коду)")
                 await cli.sign_in(self._phone, code, phone_code_hash=self._phone_code_hash)
         except SessionPasswordNeededError:
             if not password:
                 return {"need_password": True}
-            await cli.sign_in(password=password)
+            try:
+                await cli.sign_in(password=password)
+            except Exception as e:  # noqa: BLE001
+                raise TGError(tg_error_text(e)) from e
+        except TGError:
+            raise
+        except Exception as e:  # noqa: BLE001
+            raise TGError(tg_error_text(e)) from e
         return await self.status()
+
+    # ---------------- вход по QR-коду ----------------
+    async def qr_start(self) -> dict:
+        """Вход без кода: сканируешь QR в Telegram (Настройки → Устройства → Подключить устройство)."""
+        cli = await self._get_client()
+        if await cli.is_user_authorized():
+            return {"status": "done", **(await self.status())}
+        if self._qr_task and not self._qr_task.done():
+            self._qr_task.cancel()
+        try:
+            self._qr = await asyncio.wait_for(cli.qr_login(), 40)
+        except asyncio.TimeoutError as e:
+            raise TGError("Telegram не ответил за 40 c — проверь интернет/VPN") from e
+        except Exception as e:  # noqa: BLE001
+            raise TGError(tg_error_text(e)) from e
+        self._qr_state = {"status": "waiting", "url": self._qr.url}
+        self._qr_task = asyncio.get_running_loop().create_task(self._qr_loop())
+        return self._qr_state
+
+    async def _qr_loop(self):
+        from telethon.errors import SessionPasswordNeededError
+        deadline = time.time() + 300
+        while time.time() < deadline:
+            left = (self._qr.expires - datetime.now(timezone.utc)).total_seconds()
+            try:
+                await self._qr.wait(timeout=max(3.0, left))
+                self._qr_state = {"status": "done"}
+                return
+            except asyncio.TimeoutError:
+                try:
+                    await self._qr.recreate()
+                    self._qr_state = {"status": "waiting", "url": self._qr.url}
+                except Exception as e:  # noqa: BLE001
+                    self._qr_state = {"status": "error", "error": tg_error_text(e)}
+                    return
+            except SessionPasswordNeededError:
+                self._qr_state = {"status": "password"}
+                return
+            except Exception as e:  # noqa: BLE001
+                self._qr_state = {"status": "error", "error": tg_error_text(e)}
+                return
+        self._qr_state = {"status": "expired"}
+
+    async def qr_status(self) -> dict:
+        st = dict(self._qr_state or {"status": "idle"})
+        if st["status"] == "done":
+            st.update(await self.status())
+        return st
 
     async def logout(self):
         cli = await self._get_client()
@@ -286,6 +381,60 @@ def _translit(s: str) -> str:
         t = _TR.get(c.lower())
         out.append(c if t is None else (t.capitalize() if c.isupper() else t))
     return "".join(out)
+
+
+SENT_VIA = {
+    "SentCodeTypeApp": "в приложение Telegram: открой Telegram на телефоне или компьютере — код придёт "
+                       "в служебный чат «Telegram» (с синей галочкой), а не по SMS",
+    "SentCodeTypeSms": "по SMS", "SentCodeTypeFirebaseSms": "по SMS", "SentCodeTypeSmsWord": "по SMS (кодовое слово)",
+    "SentCodeTypeSmsPhrase": "по SMS (кодовая фраза)", "SentCodeTypeCall": "звонком — робот продиктует код",
+    "SentCodeTypeFlashCall": "сбросом звонка — код это последние цифры номера, с которого звонили",
+    "SentCodeTypeMissedCall": "пропущенным звонком — код это последние цифры номера, с которого звонили",
+    "SentCodeTypeEmailCode": "на почту, привязанную к аккаунту Telegram",
+    "SentCodeTypeSetUpEmailRequired": "Telegram просит сначала привязать почту — проще войти по QR-коду",
+    "SentCodeTypeFragmentSms": "через Fragment (анонимный номер)",
+}
+NEXT_VIA = {"CodeTypeSms": "по SMS", "CodeTypeCall": "звонком", "CodeTypeFlashCall": "сбросом звонка",
+            "CodeTypeMissedCall": "пропущенным звонком", "CodeTypeFragmentSms": "через Fragment"}
+
+
+def _sent_info(res) -> dict:
+    t = type(res.type).__name__
+    nxt = type(res.next_type).__name__ if getattr(res, "next_type", None) else None
+    return {"sent": True, "via": SENT_VIA.get(t, t), "type": t,
+            "next": NEXT_VIA.get(nxt) if nxt else None, "timeout": getattr(res, "timeout", None)}
+
+
+def normalize_phone(phone: str) -> str:
+    digits = re.sub(r"\D", "", phone or "")
+    if not digits:
+        raise TGError("Укажи номер телефона")
+    if len(digits) == 11 and digits.startswith("8"):  # 8XXXXXXXXXX → +7XXXXXXXXXX
+        digits = "7" + digits[1:]
+    return "+" + digits
+
+
+def tg_error_text(e: Exception) -> str:
+    n = type(e).__name__
+    secs = getattr(e, "seconds", None)
+    texts = {
+        "PhoneNumberInvalidError": "Неверный номер. Пиши в международном формате: +79991234567",
+        "ApiIdInvalidError": "Неверные api_id / api_hash — скопируй их заново с my.telegram.org (раздел API development tools)",
+        "ApiIdPublishedFloodError": "Этот api_id заблокирован Telegram — создай своё приложение на my.telegram.org",
+        "PhoneNumberBannedError": "Этот номер заблокирован в Telegram",
+        "PhoneNumberFloodError": "Слишком много попыток входа. Подожди несколько часов или войди по QR-коду",
+        "PhoneCodeInvalidError": "Неверный код — проверь цифры",
+        "PhoneCodeExpiredError": "Код устарел. Нажми «Получить код» ещё раз и введи новый код сразу",
+        "PhoneCodeEmptyError": "Введи код из Telegram",
+        "PasswordHashInvalidError": "Неверный облачный пароль (двухэтапная проверка)",
+        "SendCodeUnavailableError": "Telegram больше не может отправить код этим способом — войди по QR-коду",
+        "AuthRestartError": "Telegram попросил начать вход заново — нажми «Получить код» ещё раз",
+        "PhoneNumberUnoccupiedError": "На этот номер нет аккаунта Telegram",
+    }
+    if n == "FloodWaitError" and secs:
+        mins = max(1, round(secs / 60))
+        return f"Telegram временно ограничил попытки входа — подожди {mins} мин. или войди по QR-коду"
+    return texts.get(n, f"{n}: {e}")
 
 
 ACCOUNT = TelegramAccount()

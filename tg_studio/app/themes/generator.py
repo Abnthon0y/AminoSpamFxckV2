@@ -1,43 +1,70 @@
 """Генерация семантических ролей темы из палитры (алгоритм + нейросеть)."""
 from __future__ import annotations
 
+import json
 import random
 import re
 
 from .colors import (clamp, contrast, ensure_contrast, from_hsl, luminance, mix, on_color,
                      shift, to_hsl)
 
-ROLE_KEYS = [
-    "bg", "bg2", "surface", "header", "header_text", "header_icon",
-    "accent", "on_accent", "text", "text2", "icon", "divider", "link", "online", "badge_muted",
-    "chat_bg", "in_bubble", "in_text", "in_secondary", "in_accent",
-    "out_bubble", "out_bubble2", "out_text", "out_secondary", "out_accent",
-    "service_bg", "service_text", "input_bg", "input_text", "selection",
+ROLE_GROUPS = [
+    ("Основа", ["bg", "bg2", "surface", "divider", "selection", "accent", "accent2", "on_accent"]),
+    ("Шапка", ["header", "header_text", "header_subtitle", "header_icon"]),
+    ("Список чатов", ["text", "text2", "chat_date", "icon", "badge", "badge_text", "badge_muted", "online",
+                      "pinned_bg", "fab_bg", "fab_icon"]),
+    ("Фон чата и плашки", ["chat_bg", "service_bg", "service_text"]),
+    ("Входящие сообщения", ["in_bubble", "in_text", "in_secondary", "in_accent", "in_name", "in_link"]),
+    ("Исходящие сообщения", ["out_bubble", "out_bubble2", "out_text", "out_secondary", "out_accent", "out_link",
+                             "out_check"]),
+    ("Поле ввода", ["input_bg", "input_text", "input_hint", "input_icon", "send_btn"]),
+    ("Меню и окна", ["dialog_bg", "menu_text", "menu_icon", "emoji_panel_bg"]),
+    ("Кнопки и переключатели", ["button_bg", "button_text", "link", "switch_on", "switch_off", "checkbox",
+                                "tab_active", "progress"]),
+    ("Статусы", ["error", "success"]),
 ]
+ROLE_KEYS = [k for _, keys in ROLE_GROUPS for k in keys]
 
 ROLE_LABELS = {
-    "bg": "Фон списка чатов", "bg2": "Второй фон (настройки)", "surface": "Панели и меню",
-    "header": "Шапка", "header_text": "Текст шапки", "header_icon": "Иконки шапки",
-    "accent": "Акцент", "on_accent": "Текст на акценте", "text": "Основной текст",
-    "text2": "Второстепенный текст", "icon": "Иконки", "divider": "Разделители",
-    "link": "Ссылки", "online": "Онлайн", "badge_muted": "Счётчик без звука",
-    "chat_bg": "Фон чата", "in_bubble": "Входящее сообщение", "in_text": "Текст входящего",
-    "in_secondary": "Время во входящем", "in_accent": "Акцент входящего",
-    "out_bubble": "Исходящее сообщение", "out_bubble2": "Градиент исходящего",
-    "out_text": "Текст исходящего", "out_secondary": "Время в исходящем", "out_accent": "Акцент исходящего",
-    "service_bg": "Плашки дат", "service_text": "Текст плашек", "input_bg": "Поле ввода",
-    "input_text": "Текст поля ввода", "selection": "Выделение",
+    "bg": "Фон списка чатов", "bg2": "Второй фон (настройки)", "surface": "Панели (вкладки, плеер)",
+    "divider": "Разделители", "selection": "Выделение", "accent": "Акцент", "accent2": "Второй акцент",
+    "on_accent": "Текст на акценте",
+    "header": "Шапка", "header_text": "Заголовок в шапке", "header_subtitle": "Подзаголовок (статус)",
+    "header_icon": "Иконки шапки",
+    "text": "Имена / основной текст", "text2": "Последнее сообщение / вторичный", "chat_date": "Время в списке",
+    "icon": "Иконки", "badge": "Счётчик непрочитанных", "badge_text": "Цифра на счётчике",
+    "badge_muted": "Счётчик без звука", "online": "Онлайн / галочки", "pinned_bg": "Закреплённые чаты",
+    "fab_bg": "Круглая кнопка «написать»", "fab_icon": "Иконка на круглой кнопке",
+    "chat_bg": "Фон чата (без обоев)", "service_bg": "Плашки дат", "service_text": "Текст плашек",
+    "in_bubble": "Пузырь", "in_text": "Текст", "in_secondary": "Время", "in_accent": "Ответы / файлы",
+    "in_name": "Имя отправителя", "in_link": "Ссылки",
+    "out_bubble": "Пузырь", "out_bubble2": "Второй цвет градиента", "out_text": "Текст", "out_secondary": "Время",
+    "out_accent": "Ответы / файлы", "out_link": "Ссылки", "out_check": "Галочки прочтения",
+    "input_bg": "Фон панели ввода", "input_text": "Вводимый текст", "input_hint": "Подсказка «Сообщение»",
+    "input_icon": "Иконки (скрепка, смайл)", "send_btn": "Кнопка отправки",
+    "dialog_bg": "Фон меню и окон", "menu_text": "Текст меню", "menu_icon": "Иконки меню",
+    "emoji_panel_bg": "Панель эмодзи и стикеров",
+    "button_bg": "Кнопки", "button_text": "Текст кнопок", "link": "Ссылки в настройках",
+    "switch_on": "Переключатель вкл.", "switch_off": "Переключатель выкл.", "checkbox": "Галочки-чекбоксы",
+    "tab_active": "Активная вкладка", "progress": "Полосы загрузки / плеер",
+    "error": "Ошибки / удаление", "success": "Успех",
 }
 
 # (передний план, фон, минимальный контраст)
 CONTRAST_RULES = [
-    ("text", "bg", 7.0), ("text2", "bg", 4.5), ("text", "surface", 7.0), ("text2", "surface", 4.5),
-    ("header_text", "header", 4.5), ("header_icon", "header", 3.0),
-    ("on_accent", "accent", 4.5), ("icon", "bg", 3.0), ("link", "bg", 4.5),
+    ("text", "bg", 7.0), ("text2", "bg", 4.5), ("chat_date", "bg", 3.5), ("text", "surface", 7.0),
+    ("text2", "surface", 4.5), ("header_text", "header", 4.5), ("header_subtitle", "header", 3.0),
+    ("header_icon", "header", 3.0), ("on_accent", "accent", 4.5), ("icon", "bg", 3.0), ("link", "bg", 4.5),
+    ("badge_text", "badge", 4.5), ("fab_icon", "fab_bg", 3.0),
     ("in_text", "in_bubble", 7.0), ("in_secondary", "in_bubble", 3.5), ("in_accent", "in_bubble", 4.5),
+    ("in_name", "in_bubble", 4.5), ("in_link", "in_bubble", 4.5),
     ("out_text", "out_bubble", 7.0), ("out_text", "out_bubble2", 4.5),
-    ("out_secondary", "out_bubble", 3.5), ("out_accent", "out_bubble", 4.5),
-    ("service_text", "service_bg", 4.5), ("input_text", "input_bg", 7.0),
+    ("out_secondary", "out_bubble", 3.5), ("out_accent", "out_bubble", 4.5), ("out_link", "out_bubble", 4.5),
+    ("out_check", "out_bubble", 3.0),
+    ("service_text", "service_bg", 4.5), ("input_text", "input_bg", 7.0), ("input_hint", "input_bg", 3.5),
+    ("input_icon", "input_bg", 3.0), ("send_btn", "input_bg", 3.0),
+    ("menu_text", "dialog_bg", 7.0), ("menu_icon", "dialog_bg", 3.0), ("button_text", "button_bg", 4.5),
+    ("error", "bg", 3.0), ("success", "bg", 3.0),
 ]
 
 # для этих пар меняем только фон (градиент подстраивается под уже выбранный текст)
@@ -160,7 +187,7 @@ def derive_roles(c: dict, style: str = "") -> dict:
     text2 = ensure_contrast(mix(text, bg, 0.45), bg, 4.5)
     in_text = on_color(in_b, accent, 7.0)
     out_text = on_color(out_b, accent, 7.0)
-    return {
+    out = {
         "bg": bg, "bg2": bg2, "surface": surface, "header": header,
         "header_text": on_color(header, accent, 4.5), "header_icon": on_color(header, accent, 3.0),
         "accent": accent, "on_accent": on_color(accent, None, 4.5),
@@ -179,6 +206,37 @@ def derive_roles(c: dict, style: str = "") -> dict:
         "input_bg": surface, "input_text": on_color(surface, accent, 7.0),
         "selection": mix(accent, bg, 0.7),
     }
+    out.update({k: v for k, v in c.items() if k in ROLE_KEYS and isinstance(v, str) and v.startswith("#")})
+    o = out  # производные детальные роли (по умолчанию — от базовых)
+    defaults = {
+        "accent2": accent2,
+        "header_subtitle": ensure_contrast(mix(o["header_text"], o["header"], 0.3), o["header"], 3.0),
+        "chat_date": o["text2"],
+        "badge": o["accent"], "pinned_bg": mix(o["bg"], o["accent"], 0.06),
+        "fab_bg": o["accent"],
+        "in_name": o["in_accent"], "in_link": o["in_accent"],
+        "out_link": o["out_accent"], "out_check": o["out_accent"],
+        "input_hint": ensure_contrast(mix(o["input_text"], o["input_bg"], 0.5), o["input_bg"], 3.5),
+        "input_icon": ensure_contrast(mix(o["icon"], o["input_bg"], 0.1), o["input_bg"], 3.0),
+        "send_btn": ensure_contrast(o["accent"], o["input_bg"], 3.0),
+        "dialog_bg": o["surface"], "emoji_panel_bg": o["surface"],
+        "button_bg": o["accent"],
+        "switch_on": o["accent"], "switch_off": mix(o["text2"], o["bg"], 0.4), "checkbox": o["accent"],
+        "tab_active": o["accent"], "progress": o["accent"],
+        "error": ensure_contrast("#e5484d" if dark else "#d13438", o["bg"], 3.0),
+        "success": ensure_contrast("#3dd68c" if dark else "#218358", o["bg"], 3.0),
+    }
+    for k, v in defaults.items():
+        out.setdefault(k, v)
+    late = {
+        "badge_text": on_color(out["badge"], None, 4.5), "fab_icon": on_color(out["fab_bg"], None, 3.0),
+        "menu_text": on_color(out["dialog_bg"], accent, 7.0),
+        "menu_icon": ensure_contrast(mix(out["icon"], out["dialog_bg"], 0.1), out["dialog_bg"], 3.0),
+        "button_text": on_color(out["button_bg"], None, 4.5),
+    }
+    for k, v in late.items():
+        out.setdefault(k, v)
+    return out
 
 
 def fix_contrast(roles: dict, boost: float = 0.0, locked: dict | None = None) -> dict:
@@ -268,3 +326,78 @@ def normalize_ai_themes(data, palette: list[dict]) -> list[dict]:
     if not out:
         raise ValueError("Нейросеть не прислала ни одной темы — попробуй ещё раз")
     return out
+
+
+# ---------------- ИИ пишет тему целиком ----------------
+def _roles_spec() -> str:
+    return "\n".join(f"{g}: " + ", ".join(f"{k} ({ROLE_LABELS[k]})" for k in keys) for g, keys in ROLE_GROUPS)
+
+
+FULL_SYSTEM = (
+    "Ты — дизайнер тем для Telegram. Сам придумываешь цельную, уникальную и эстетичную тему: "
+    "палитру, все цвета интерфейса, название и описание обоев. Все тексты должны легко читаться "
+    "(основной текст ≥ 7:1 к фону, вторичный ≥ 4.5:1). Отвечаешь только JSON."
+)
+
+
+def ai_full_prompt(description: str, mode: str, palette: list[dict] | None = None) -> str:
+    pal = (", ".join(p["hex"] for p in palette) if palette else "")
+    return (
+        f"Идея темы: {description or 'придумай сам что-то красивое и необычное'}\n"
+        f"Режим: {mode} (auto — выбери сам)\n"
+        + (f"Опирайся на палитру обоев пользователя: {pal}\n" if pal else "")
+        + "Заполни ВСЕ роли цветами HEX #rrggbb:\n" + _roles_spec() + "\n\n"
+        'Формат: {"name": "красивое название 1–3 слова", "mode": "dark|light", '
+        '"wallpaper_prompt": "подробное описание обоев на английском для нейросети-художника, без текста", '
+        '"roles": {"bg": "#...", ... все роли ...}}'
+    )
+
+
+def _hex_roles(d: dict) -> dict:
+    out = {}
+    for k, v in (d or {}).items():
+        if k in ROLE_KEYS and isinstance(v, str) and re.fullmatch(r"#?[0-9a-fA-F]{6}", v.strip()):
+            out[k] = "#" + v.strip().lstrip("#").lower()
+    return out
+
+
+def normalize_full(data: dict, palette: list[dict] | None = None, boost: float = 0.0,
+                   locked: dict | None = None) -> dict:
+    if not isinstance(data, dict):
+        raise ValueError("Нейросеть вернула не то — попробуй ещё раз")
+    roles = _hex_roles(data.get("roles") or data.get("colors") or {})
+    if len(roles) < 4:
+        raise ValueError("Нейросеть не прислала цвета темы — попробуй ещё раз или выбери другую нейросеть")
+    if "bg" not in roles:
+        roles["bg"] = build_theme(palette or [{"hex": roles.get("accent", "#8f7bff"), "share": 1}],
+                                  data.get("mode", "auto"))["bg"]
+    full = fix_contrast(derive_roles({**roles, **(locked or {})}), boost, locked)
+    full["_meta"] = {"mode": "dark" if luminance(full["bg"]) < 0.3 else "light", "style": "ai-full",
+                     "name": str(data.get("name") or "AI тема")[:40],
+                     "filled_by_ai": len(roles), "total": len(ROLE_KEYS)}
+    return {"roles": full, "wallpaper_prompt": str(data.get("wallpaper_prompt") or "")[:600]}
+
+
+EDIT_SYSTEM = ("Ты дорабатываешь тему Telegram по просьбе пользователя. Меняешь только нужные цвета, "
+               "сохраняя читаемость текста. Отвечаешь только JSON.")
+
+
+def ai_edit_prompt(roles: dict, instruction: str) -> str:
+    cur = {k: roles[k] for k in ROLE_KEYS if k in roles}
+    return (
+        f"Текущая тема (роль → цвет):\n{json.dumps(cur, ensure_ascii=False)}\n\n"
+        f"Значения ролей:\n{_roles_spec()}\n\n"
+        f"Просьба: {instruction}\n\n"
+        'Верни только изменённые роли: {"roles": {"роль": "#rrggbb", ...}, "comment": "что изменил, 1 фраза"}'
+    )
+
+
+def apply_edit(roles: dict, data: dict, boost: float = 0.0, locked: dict | None = None) -> tuple[dict, list[str], str]:
+    changes = _hex_roles((data or {}).get("roles") or {})
+    new = dict(roles)
+    new.update(changes)
+    fixed = fix_contrast(new, boost, locked)
+    for k in ("_meta", "_overrides"):
+        if k in roles:
+            fixed[k] = roles[k]
+    return fixed, sorted(changes), str((data or {}).get("comment") or "")[:200]

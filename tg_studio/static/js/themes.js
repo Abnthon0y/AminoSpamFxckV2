@@ -1,6 +1,7 @@
 import { $, $$, api, busy, color, debounce, dropZone, esc, h, linkify, pickImages, store, toast, uploadFiles } from "./api.js";
 
 const S = {
+  openGroups: new Set(["Основа", "Входящие сообщения", "Исходящие сообщения"]), keysPf: "android", keys: [],
   wallpaper: null, wallUrl: null, base: [], palette: [], brightness: null,
   adj: { hue: 0, sat: 0, light: 0, contrast: 0 }, mode: "auto",
   variants: [], roles: null, report: [], selRole: null, meta: null, name: "Моя тема",
@@ -16,6 +17,16 @@ export async function initThemes(root) {
   </div>
   <div class="grid cols-3">
     <div class="stack">
+      <div class="card">
+        <h3>✨ ИИ сама создаст тему</h3>
+        <textarea id="thFullDesc" rows="3" placeholder="опиши идею: «клубничное молоко», «ночной Токио в неоне», «старая библиотека и тёплый свет»"></textarea>
+        <div class="row small" style="margin:8px 0">
+          <label class="check"><input type="checkbox" id="thFullWp" checked> нарисовать обои</label>
+          <label class="check"><input type="checkbox" id="thFullPal"> учитывать мои обои</label>
+        </div>
+        <button class="btn primary" id="thFull" data-busy="ИИ создаёт тему…">✨ Создать тему целиком</button>
+        <div class="muted small" id="thFullInfo" style="margin-top:8px">Нейросеть придумает название, все ${S.meta.roles.length} цветов интерфейса и обои.</div>
+      </div>
       <div class="card">
         <h3>🖼️ Обои</h3>
         <div class="drop" id="thDrop">Перетащи обои сюда или нажми<br><span class="small">JPG / PNG</span></div>
@@ -67,10 +78,30 @@ export async function initThemes(root) {
           <button class="btn small ghost" id="thApplyAdj" title="Применить ползунки палитры ко всей теме">↻ Ползунки → тема</button>
           <button class="btn small ghost" id="thUndo">↶</button>
         </div>
+        <div class="row" style="margin-bottom:10px">
+          <input type="text" id="thEditTxt" placeholder="🪄 скажи ИИ: «пузыри темнее», «акцент мятный», «шапка как фон»" style="flex:1">
+          <button class="btn small primary" id="thEdit" data-busy="Меняю…">Изменить</button>
+        </div>
+        <div class="muted small" id="thEditInfo" style="margin-bottom:8px"></div>
         <div class="muted small" style="margin-bottom:6px">Выбери роль, затем кликни цвет палитры ниже — или используй пипетку.</div>
         <div class="palette" id="thMiniPal" style="margin-bottom:10px"></div>
-        <div class="roles" id="thRoles"><div class="empty">Тема ещё не выбрана</div></div>
+        <input type="text" id="thRoleQ" placeholder="🔍 найти: пузырь, шапка, счётчик…" style="margin-bottom:8px">
+        <div class="roles" id="thRoles" style="max-height:640px"><div class="empty">Тема ещё не выбрана</div></div>
       </div>
+      <div class="card"><details id="thKeysDet"><summary style="cursor:pointer"><b>🔬 Тонкая настройка — все ключи Android / Desktop</b></summary>
+        <div class="row" style="margin:10px 0">
+          <div class="seg" id="thKeysPf"><button data-v="android" class="on">Android</button><button data-v="tdesktop">Desktop</button></div>
+          <label class="check small"><input type="checkbox" id="thKeysOnly"> только изменённые</label>
+        </div>
+        <input type="text" id="thKeysQ" placeholder="поиск ключа: Bubble, chats_, msgIn, actionBar…">
+        <div class="row small" style="margin:8px 0">
+          <input type="text" id="thKeyNew" placeholder="добавить свой ключ" style="flex:1">
+          <button class="btn small" id="thKeyAdd">＋</button>
+          <button class="btn small ghost danger" id="thKeysReset">сбросить ручные</button>
+        </div>
+        <div class="roles" id="thKeys" style="max-height:420px"></div>
+        <div class="muted small" style="margin-top:8px">Эти значения важнее ролей. Облачная тема Telegram берёт только акцент и цвета сообщений — все ключи попадают в файлы .attheme и .tdesktop-theme.</div>
+      </details></div>
       <div class="card">
         <h3>🚀 Экспорт и публикация</h3>
         <div class="chips" id="thPlatforms">
@@ -117,6 +148,27 @@ export async function initThemes(root) {
   $("#thGen").onclick = (e) => busy(e.currentTarget, generate);
   $("#thAI").onclick = (e) => busy(e.currentTarget, aiGenerate);
   $("#thName").oninput = (e) => (S.name = e.target.value);
+  $("#thFull").onclick = (e) => busy(e.currentTarget, aiFull);
+  $("#thEdit").onclick = (e) => busy(e.currentTarget, aiEdit);
+  $("#thEditTxt").onkeydown = (e) => { if (e.key === "Enter") $("#thEdit").click(); };
+  $("#thRoleQ").oninput = () => drawRoles();
+  $$("#thKeysPf button").forEach((b) => (b.onclick = () => { $$("#thKeysPf button").forEach((x) => x.classList.toggle("on", x === b)); S.keysPf = b.dataset.v; loadKeys(); }));
+  $("#thKeysQ").oninput = () => drawKeys();
+  $("#thKeysOnly").onchange = () => drawKeys();
+  $("#thKeysDet").addEventListener("toggle", () => { if ($("#thKeysDet").open) loadKeys(); });
+  $("#thKeyAdd").onclick = () => {
+    const k = $("#thKeyNew").value.trim();
+    if (!k || !S.roles) return;
+    setOverride(k, S.roles.accent);
+    $("#thKeyNew").value = "";
+  };
+  $("#thKeysReset").onclick = () => {
+    if (!S.roles?._overrides?.[S.keysPf]) return;
+    pushUndo();
+    const ov = { ...(S.roles._overrides || {}) };
+    delete ov[S.keysPf];
+    setRoles({ ...S.roles, _overrides: ov });
+  };
   $("#thFix").onclick = (e) => busy(e.currentTarget, async () => { pushUndo(); const r = await api("/api/theme/fix", { roles: S.roles }); setRoles(r.roles); toast("Контраст исправлен ✓", "ok"); });
   $("#thApplyAdj").onclick = () => {
     if (!S.roles) return;
@@ -132,7 +184,14 @@ export async function initThemes(root) {
 
   root.addEventListener("shown", async () => { S.meta = await api("/api/theme/meta"); if (S.roles) drawRoles(); });
   const saved = store.get("theme:last");
-  if (saved?.roles) { S.name = saved.name || S.name; $("#thName").value = S.name; setRoles(saved.roles, false); }
+  if (saved?.roles) {
+    S.name = saved.name || S.name;
+    $("#thName").value = S.name;
+    // старые сохранённые темы — достраиваем новые детальные роли
+    const missing = S.meta.roles.some((k) => !saved.roles[k]);
+    if (missing) { try { saved.roles = (await api("/api/theme/fix", { roles: saved.roles, fix: false })).roles; } catch { /* оффлайн */ } }
+    setRoles(saved.roles, false);
+  }
   renderPhones();
 }
 
@@ -246,22 +305,22 @@ function report() {
 
 function drawRoles() {
   const box = $("#thRoles");
+  if (!S.roles) return;
   box.innerHTML = "";
   const rep = report();
-  for (const k of S.meta.roles) {
-    const mine = rep.filter((r) => r.fg === k);
-    const worst = mine.sort((a, b) => a.ratio / a.need - b.ratio / b.need)[0];
-    const badge = worst ? `<span class="badge-c ${worst.ok ? "" : "bad"}" title="контраст с ${worst.bg}, нужно ≥ ${worst.need}">${worst.ratio.toFixed(1)}</span>` : "<span></span>";
-    const row = h(`<div class="role ${S.selRole === k ? "target" : ""}">
-      <input type="color" value="${S.roles[k]}"><div>${S.meta.locked?.[k] ? "🔒 " : ""}${esc(S.meta.labels[k])}<br><code>${k}</code></div>
-      <input type="text" value="${S.roles[k]}" style="font:11px var(--mono);padding:4px 6px">${badge}</div>`);
-    const ci = $("input[type=color]", row);
-    const ti = $("input[type=text]", row);
-    ci.oninput = () => { S.roles[k] = ci.value; ti.value = ci.value; renderPhones(); };
-    ci.onchange = () => { pushUndo(); setRoles(S.roles); };
-    ti.onchange = () => { if (/^#[0-9a-f]{6}$/i.test(ti.value)) { pushUndo(); setRoles({ ...S.roles, [k]: ti.value.toLowerCase() }); } };
-    row.onclick = (e) => { if (e.target.tagName !== "INPUT") { S.selRole = k; drawRoles(); } };
-    box.append(row);
+  const q = ($("#thRoleQ")?.value || "").trim().toLowerCase();
+  for (const [group, keys] of S.meta.groups) {
+    const shown = keys.filter((k) => !q || k.includes(q) || S.meta.labels[k].toLowerCase().includes(q) || group.toLowerCase().includes(q));
+    if (!shown.length) continue;
+    const badN = rep.filter((r) => keys.includes(r.fg) && !r.ok).length;
+    const det = h(`<details ${S.openGroups.has(group) || q ? "open" : ""} style="margin-bottom:4px">
+      <summary style="cursor:pointer;padding:6px 4px;font-weight:700;font-size:13px">${esc(group)}
+        <span class="muted small">${keys.length}</span> ${badN ? `<span class="badge-c bad">⚠ ${badN}</span>` : ""}
+        <span style="display:inline-flex;gap:2px;margin-left:6px;vertical-align:middle">${keys.slice(0, 8).map((k) => `<i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${S.roles[k]}"></i>`).join("")}</span>
+      </summary></details>`);
+    det.addEventListener("toggle", () => { det.open ? S.openGroups.add(group) : S.openGroups.delete(group); });
+    for (const k of shown) det.append(roleRow(k, rep));
+    box.append(det);
   }
   const bad = rep.filter((r) => !r.ok);
   $("#thReportSum").innerHTML = bad.length
@@ -269,6 +328,107 @@ function drawRoles() {
     : `<span class="badge-c">✓ все тексты читаемы (WCAG)</span>`;
   const f2 = $("#thFix2");
   if (f2) f2.onclick = () => $("#thFix").click();
+  if ($("#thKeysDet")?.open) loadKeys();
+}
+
+function roleRow(k, rep) {
+  const mine = rep.filter((r) => r.fg === k);
+  const worst = mine.sort((a, b) => a.ratio / a.need - b.ratio / b.need)[0];
+  const badge = worst ? `<span class="badge-c ${worst.ok ? "" : "bad"}" title="контраст с ${worst.bg}, нужно ≥ ${worst.need}">${worst.ratio.toFixed(1)}</span>` : "<span></span>";
+  const row = h(`<div class="role ${S.selRole === k ? "target" : ""}">
+    <input type="color" value="${S.roles[k]}"><div>${S.meta.locked?.[k] ? "🔒 " : ""}${esc(S.meta.labels[k])}<br><code>${k}</code></div>
+    <input type="text" value="${S.roles[k]}" style="font:11px var(--mono);padding:4px 6px">${badge}</div>`);
+  const ci = $("input[type=color]", row);
+  const ti = $("input[type=text]", row);
+  ci.oninput = () => { S.roles[k] = ci.value; ti.value = ci.value; renderPhones(); };
+  ci.onchange = () => { pushUndo(); setRoles(S.roles); };
+  ti.onchange = () => { if (/^#[0-9a-f]{6}$/i.test(ti.value)) { pushUndo(); setRoles({ ...S.roles, [k]: ti.value.toLowerCase() }); } };
+  row.onclick = (e) => { if (e.target.tagName !== "INPUT") { S.selRole = k; drawRoles(); } };
+  return row;
+}
+
+// ---------- тонкая настройка ключей ----------
+const loadKeys = debounce(async () => {
+  if (!S.roles) return;
+  try { S.keys = (await api("/api/theme/keys", { roles: S.roles, platform: S.keysPf })).keys; } catch (e) { toast(e.message, "err"); return; }
+  drawKeys();
+}, 300);
+
+function setOverride(key, hex8) {
+  pushUndo();
+  const ov = { ...(S.roles._overrides || {}) };
+  ov[S.keysPf] = { ...(ov[S.keysPf] || {}), [key]: hex8 };
+  setRoles({ ...S.roles, _overrides: ov });
+}
+
+function drawKeys() {
+  const box = $("#thKeys");
+  const q = $("#thKeysQ").value.trim().toLowerCase();
+  const only = $("#thKeysOnly").checked;
+  const list = (S.keys || []).filter((k) => (!q || k.key.toLowerCase().includes(q) || k.expr.includes(q)) && (!only || k.override));
+  box.innerHTML = list.length ? "" : `<div class="empty">Ничего не найдено</div>`;
+  for (const k of list.slice(0, 200)) {
+    const row = h(`<div class="role" style="grid-template-columns:30px 1fr 58px auto">
+      <input type="color" value="${k.color}">
+      <div style="overflow:hidden">${k.override ? "✎ " : ""}<code style="color:var(--text)">${esc(k.key)}</code><br><code>${esc(k.expr)}</code></div>
+      <input type="number" min="0" max="100" value="${k.alpha}" title="непрозрачность %" style="padding:4px">
+      ${k.override ? '<button class="icon-btn" title="вернуть как в роли">↺</button>' : "<span></span>"}</div>`);
+    const [ci, ai] = [row.querySelector("input[type=color]"), row.querySelector("input[type=number]")];
+    const commit = () => {
+      const a = Math.round(Math.max(0, Math.min(100, +ai.value)) * 2.55);
+      setOverride(k.key, ci.value + (a === 255 ? "" : a.toString(16).padStart(2, "0")));
+    };
+    ci.onchange = commit;
+    ai.onchange = commit;
+    const rb = row.querySelector("button");
+    if (rb) rb.onclick = () => {
+      pushUndo();
+      const ov = structuredClone(S.roles._overrides || {});
+      delete ov[S.keysPf][k.key];
+      setRoles({ ...S.roles, _overrides: ov });
+    };
+    box.append(row);
+  }
+  if (list.length > 200) box.append(h(`<div class="muted small" style="padding:6px">…ещё ${list.length - 200}, уточни поиск</div>`));
+}
+
+// ---------- ИИ: тема целиком и правка словами ----------
+async function aiFull() {
+  const desc = $("#thFullDesc").value.trim();
+  const r = await api("/api/theme/ai_full", {
+    description: desc, mode: S.mode, wallpaper: $("#thFullWp").checked,
+    use_palette: $("#thFullPal").checked && S.palette.length > 0, palette: S.palette,
+  });
+  const t = r.theme.roles;
+  pushUndo();
+  S.name = t._meta?.name || S.name;
+  $("#thName").value = S.name;
+  if (r.wallpaper) {
+    S.wallpaper = r.wallpaper;
+    S.wallUrl = `/uploads/${encodeURIComponent(r.wallpaper)}`;
+    $("#thDrop").innerHTML = `<img src="${S.wallUrl}">`;
+    S.base = r.palette;
+    S.brightness = r.brightness;
+    applyAdj();
+  }
+  S.variants = [r.theme, ...S.variants].slice(0, 12);
+  drawVariants();
+  setRoles(t);
+  $("#thFullInfo").innerHTML = `✓ «${esc(S.name)}»: ИИ заполнил ${t._meta?.filled_by_ai ?? "?"} из ${t._meta?.total ?? S.meta.roles.length} цветов, остальные рассчитаны программой.`
+    + (r.wallpaper_error ? `<br>⚠ обои не нарисовались: ${esc(r.wallpaper_error)}` : "")
+    + (r.wallpaper_prompt && !r.wallpaper ? `<br><span class="muted">идея обоев: ${esc(r.wallpaper_prompt)}</span>` : "");
+}
+
+async function aiEdit() {
+  if (!S.roles) return toast("Сначала создай или выбери тему", "err");
+  const instruction = $("#thEditTxt").value.trim();
+  if (!instruction) return toast("Напиши, что поменять", "err");
+  const r = await api("/api/theme/ai_edit", { roles: S.roles, instruction });
+  pushUndo();
+  setRoles(r.roles);
+  $("#thEditInfo").textContent = r.changed.length
+    ? `✓ изменено: ${r.changed.map((k) => S.meta.labels[k] || k).join(", ")}${r.comment ? " — " + r.comment : ""}`
+    : "ИИ ничего не поменял — попробуй сформулировать иначе";
 }
 
 function renderPhones() {
@@ -283,7 +443,8 @@ function renderPhones() {
     <div class="tg-head"><span class="ic">☰</span><div>Telegram<small>в сети</small></div><span class="ic" style="margin-left:auto">⌕</span></div>
     <div class="tg-list">
       ${[["Mia ♡", "голосовое сообщение", "12:04", 3], ["Канал ✦ aesthetic", "новый пост: обои ˖ ࣪", "11:50", 12], ["Лиза", "ахах да 😭", "10:12", 0], ["Избранное", "📎 theme.attheme", "вчера", 0], ["Kpop chat", "Ари: ты видела?", "пн", 99]]
-        .map(([n, m, d, c], i) => `<div class="tg-item"><div class="tg-ava" style="${i % 2 ? "filter:hue-rotate(40deg)" : ""}">${n[0]}</div><div><b>${n}</b><span>${m}</span></div><i>${d}<br>${c ? `<span class="tg-badge ${i === 4 ? "m" : ""}">${c}</span>` : ""}</i></div>`).join("")}
+        .map(([n, m, d, c], i) => `<div class="tg-item" style="${i === 0 ? "background:var(--t-pinned_bg)" : ""}"><div class="tg-ava" style="${i % 2 ? "filter:hue-rotate(40deg)" : ""}">${n[0]}</div><div><b>${n}</b><span>${m}</span></div><i>${i === 3 ? '<span style="color:var(--t-online)">✓✓</span> ' : ""}${d}<br>${c ? `<span class="tg-badge ${i === 4 ? "m" : ""}">${c}</span>` : ""}</i></div>`).join("")}
+      <div class="tg-fab">✎</div>
     </div>
     <div class="tg-tabs"><span class="on">💬<br>Чаты</span><span>👤<br>Контакты</span><span>⚙︎<br>Настройки</span></div>
   </div></div>
@@ -292,11 +453,11 @@ function renderPhones() {
     <div class="tg-chat" style="${wp}">
       <div class="tg-date">Сегодня</div>
       <div class="bub in"><div class="nm">Mia</div>смотри какую тему сделала ✦<span class="t">12:01</span></div>
-      <div class="bub out"><div class="rp">Mia: смотри какую…</div>очень красиво!! <span class="lk">t.me/addtheme</span><span class="t">12:02 ✓✓</span></div>
-      <div class="bub in">а текст хорошо читается? 👀<span class="t">12:03</span></div>
-      <div class="bub out">да, контраст как надо ˖ ࣪ ⊹<span class="t">12:04 ✓✓</span></div>
+      <div class="bub out"><div class="rp">Mia: смотри какую…</div>очень красиво!! <span class="lk">t.me/addtheme</span><span class="t">12:02 <b class="ck">✓✓</b></span></div>
+      <div class="bub in">а текст хорошо читается? 👀 <span class="lk">#тема</span><span class="t">12:03</span></div>
+      <div class="bub out">да, контраст как надо ˖ ࣪ ⊹<span class="t">12:04 <b class="ck">✓✓</b></span></div>
     </div>
-    <div class="tg-input">😊 Сообщение<span class="send">➤</span></div>
+    <div class="tg-input"><span class="ic">😊</span>Сообщение<span class="ic" style="margin-left:auto">📎</span><span class="send" style="margin-left:8px">➤</span></div>
   </div></div>`;
 }
 

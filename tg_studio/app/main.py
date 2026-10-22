@@ -192,8 +192,25 @@ async def tg_send_code(data: dict = Body(...)):
     phone = data.get("phone") or config.load_settings()["telegram"].get("phone")
     if not phone:
         raise HTTPException(400, "Укажи номер телефона")
-    config.save_settings({"telegram": {"phone": phone}})
+    config.save_settings({"telegram": {"phone": phone.strip()}})
     return await ACCOUNT.send_code(phone)
+
+
+@app.post("/api/tg/resend_code")
+async def tg_resend_code():
+    return await ACCOUNT.resend_code()
+
+
+@app.post("/api/tg/qr_start")
+async def tg_qr_start():
+    if not config.load_settings()["telegram"].get("api_id"):
+        raise HTTPException(400, "Сначала укажи api_id и api_hash и нажми «Сохранить»")
+    return await ACCOUNT.qr_start()
+
+
+@app.get("/api/tg/qr_status")
+async def tg_qr_status():
+    return await ACCOUNT.qr_status()
 
 
 @app.post("/api/tg/sign_in")
@@ -224,6 +241,7 @@ async def theme_palette(data: dict = Body(...)):
 async def theme_meta():
     boost = float(rules.section("themes").get("contrast_boost") or 0) / 100
     return {"roles": th_gen.ROLE_KEYS, "labels": th_gen.ROLE_LABELS, "styles": th_gen.STYLES,
+            "groups": th_gen.ROLE_GROUPS,
             "rules": [(fg, bg, round(min(21.0, r * (1 + boost)), 2)) for fg, bg, r in th_gen.CONTRAST_RULES],
             "locked": rules.theme_locked()}
 
@@ -269,10 +287,61 @@ async def theme_ai(data: dict = Body(...)):
     return {"themes": _finish_themes(th_gen.normalize_ai_themes(raw, pal))}
 
 
+@app.post("/api/theme/ai_full")
+async def theme_ai_full(data: dict = Body(...)):
+    """ИИ сама пишет всю тему: 58 ролей, название, описание обоев — и (по желанию) рисует обои."""
+    mode_rule, boost, locked, _ = _theme_rules()
+    ai = AIClient(section="themes")
+    desc = data.get("description", "")
+    if locked:
+        desc += ". Обязательно используй цвета: " + ", ".join(f"{k}={v}" for k, v in locked.items())
+    pal = data.get("palette") if data.get("use_palette") else None
+    raw = await ai.chat_json(th_gen.ai_full_prompt(desc, mode_rule or data.get("mode", "auto"), pal),
+                             system=th_gen.FULL_SYSTEM, max_tokens=12000)
+    res = th_gen.normalize_full(raw, pal, boost, locked)
+    out = {"theme": {"roles": res["roles"], "report": th_gen.contrast_report(res["roles"], boost)},
+           "wallpaper_prompt": res["wallpaper_prompt"]}
+    if data.get("wallpaper") and res["wallpaper_prompt"]:
+        try:
+            img = await generate_image(res["wallpaper_prompt"] + ", smartphone wallpaper, aesthetic, no text",
+                                       1080, 1920)
+            name = f"wp_{uuid.uuid4().hex[:6]}.jpg"
+            Image.open(io.BytesIO(img)).convert("RGB").save(UPLOAD_DIR / name, quality=92)
+            with Image.open(UPLOAD_DIR / name) as im:
+                out["wallpaper"] = name
+                out["palette"] = extract_palette(im, 12)
+                out["brightness"] = wallpaper_brightness(im)
+        except Exception as e:  # noqa: BLE001 — тема уже готова, обои не критичны
+            out["wallpaper_error"] = str(e)
+    return out
+
+
+@app.post("/api/theme/ai_edit")
+async def theme_ai_edit(data: dict = Body(...)):
+    """Правка темы словами: «сделай пузыри темнее», «акцент мятный»."""
+    _, boost, locked, _ = _theme_rules()
+    ai = AIClient(section="themes")
+    raw = await ai.chat_json(th_gen.ai_edit_prompt(data["roles"], data.get("instruction", "")),
+                             system=th_gen.EDIT_SYSTEM, max_tokens=8000)
+    roles, changed, comment = th_gen.apply_edit(data["roles"], raw, boost, locked)
+    return {"roles": roles, "report": th_gen.contrast_report(roles, boost), "changed": changed, "comment": comment}
+
+
+@app.post("/api/theme/keys")
+async def theme_keys(data: dict = Body(...)):
+    """Все ключи Android / Desktop с итоговыми цветами — для тонкой настройки."""
+    return {"keys": th_exp.resolved_keys(data["roles"], data.get("platform", "android"))}
+
+
 @app.post("/api/theme/fix")
 async def theme_fix(data: dict = Body(...)):
     _, boost, locked, _ = _theme_rules()
-    roles = th_gen.fix_contrast(data["roles"], boost, locked) if data.get("fix", True) else data["roles"]
+    src = data["roles"]
+    roles = th_gen.derive_roles(src) if src.get("bg") else dict(src)  # достраивает недостающие роли (старые темы)
+    roles = th_gen.fix_contrast(roles, boost, locked) if data.get("fix", True) else roles
+    for k in ("_meta", "_overrides"):
+        if k in src:
+            roles[k] = src[k]
     return {"roles": roles, "report": th_gen.contrast_report(roles, boost)}
 
 

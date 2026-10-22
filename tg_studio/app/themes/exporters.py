@@ -35,13 +35,13 @@ windowBackgroundWhiteBlueText5=accent
 windowBackgroundWhiteBlueText6=accent
 windowBackgroundWhiteBlueText7=accent
 windowBackgroundWhiteBlueHeader=accent
-windowBackgroundWhiteBlueButton=accent
+windowBackgroundWhiteBlueButton=button_bg
 windowBackgroundWhiteBlueIcon=accent
 windowBackgroundWhiteLinkText=link
 windowBackgroundWhiteLinkSelection=selection
 windowBackgroundWhiteValueText=accent
-windowBackgroundWhiteGreenText=online
-windowBackgroundWhiteGreenText2=online
+windowBackgroundWhiteGreenText=success
+windowBackgroundWhiteGreenText2=success
 windowBackgroundWhiteGrayIcon=icon
 windowBackgroundWhiteInputField=divider
 windowBackgroundWhiteInputFieldActivated=accent
@@ -52,21 +52,21 @@ divider=divider
 listSelectorSDK21=text/8
 graySection=bg2
 key_graySectionText=text2
-progressCircle=accent
+progressCircle=progress
 fastScrollActive=accent
 fastScrollInactive=divider
 fastScrollText=on_accent
 actionBarDefault=header
 actionBarDefaultIcon=header_icon
 actionBarDefaultTitle=header_text
-actionBarDefaultSubtitle=header_text/70
+actionBarDefaultSubtitle=header_subtitle
 actionBarDefaultSelector=header_text/12
 actionBarWhiteSelector=text/12
 actionBarDefaultSearch=header_text
 actionBarDefaultSearchPlaceholder=header_text/55
-actionBarDefaultSubmenuItem=text
-actionBarDefaultSubmenuItemIcon=icon
-actionBarDefaultSubmenuBackground=surface
+actionBarDefaultSubmenuItem=menu_text
+actionBarDefaultSubmenuItemIcon=menu_icon
+actionBarDefaultSubmenuBackground=dialog_bg
 actionBarDefaultSubmenuSeparator=bg2
 actionBarActionModeDefault=surface
 actionBarActionModeDefaultIcon=icon
@@ -74,7 +74,7 @@ actionBarActionModeDefaultTop=surface
 actionBarActionModeDefaultSelector=text/12
 actionBarTabActiveText=header_text
 actionBarTabUnactiveText=header_text/60
-actionBarTabLine=accent
+actionBarTabLine=tab_active
 actionBarTabSelector=header_text/12
 actionBarBrowser=header
 actionBarDefaultArchived=bg2
@@ -97,8 +97,8 @@ profile_actionPressedBackground=accent+bg:0.2
 profile_verifiedBackground=accent
 profile_verifiedCheck=on_accent
 profile_tabText=text2
-profile_tabSelectedText=accent
-profile_tabSelectedLine=accent
+profile_tabSelectedText=tab_active
+profile_tabSelectedLine=tab_active
 profile_tabSelector=text/10
 chats_name=text
 chats_secretName=online
@@ -113,32 +113,32 @@ chats_nameArchived=text
 chats_draft=accent
 chats_attachMessage=accent
 chats_actionMessage=accent
-chats_date=text2
+chats_date=chat_date
 chats_pinnedIcon=icon
-chats_pinnedOverlay=text/5
+chats_pinnedOverlay=pinned_bg/60
 chats_tabletSelectedOverlay=selection/50
-chats_sentCheck=accent
-chats_sentReadCheck=accent
+chats_sentCheck=online
+chats_sentReadCheck=online
 chats_sentClock=text2
-chats_sentError=on_accent
+chats_sentError=error
 chats_sentErrorIcon=on_accent
 chats_verifiedBackground=accent
 chats_verifiedCheck=on_accent
 chats_muteIcon=icon
 chats_mentionIcon=on_accent
-chats_unreadCounter=accent
-chats_unreadCounterText=on_accent
+chats_unreadCounter=badge
+chats_unreadCounterText=badge_text
 chats_unreadCounterMuted=badge_muted
 chats_onlineCircle=online
 chats_archiveBackground=accent
 chats_archivePinBackground=badge_muted
 chats_archiveIcon=on_accent
 chats_archiveText=on_accent
-chats_actionBackground=accent
-chats_actionIcon=on_accent
-chats_actionPressedBackground=accent+bg:0.2
-chats_actionUnreadBackground=accent
-chats_actionUnreadIcon=on_accent
+chats_actionBackground=fab_bg
+chats_actionIcon=fab_icon
+chats_actionPressedBackground=fab_bg+bg:0.2
+chats_actionUnreadBackground=fab_bg
+chats_actionUnreadIcon=fab_icon
 chats_menuBackground=surface
 chats_menuItemText=text
 chats_menuItemIcon=icon
@@ -162,8 +162,8 @@ chat_outBubbleSelected=out_bubble+accent:0.12
 chat_outBubbleShadow=out_bubble/0
 chat_messageTextIn=in_text
 chat_messageTextOut=out_text
-chat_messageLinkIn=in_accent
-chat_messageLinkOut=out_accent
+chat_messageLinkIn=in_link
+chat_messageLinkOut=out_link
 chat_textSelectBackground=selection/60
 chat_inTimeText=in_secondary
 chat_outTimeText=out_secondary
@@ -171,8 +171,8 @@ chat_inTimeSelectedText=in_secondary
 chat_outTimeSelectedText=out_secondary
 chat_outSentCheck=out_secondary
 chat_outSentCheckSelected=out_secondary
-chat_outSentCheckRead=out_accent
-chat_outSentCheckReadSelected=out_accent
+chat_outSentCheckRead=out_check
+chat_outSentCheckReadSelected=out_check
 chat_outSentClock=out_secondary
 chat_outSentClockSelected=out_secondary
 chat_inSentClock=in_secondary
@@ -181,15 +181,15 @@ chat_outViews=out_secondary
 chat_inViews=in_secondary
 chat_inReplyLine=in_accent
 chat_outReplyLine=out_accent
-chat_inReplyNameText=in_accent
+chat_inReplyNameText=in_name
 chat_outReplyNameText=out_accent
 chat_inReplyMessageText=in_text
 chat_outReplyMessageText=out_text
 chat_inReplyMediaMessageText=in_secondary
 chat_outReplyMediaMessageText=out_secondary
-chat_inForwardedNameText=in_accent
+chat_inForwardedNameText=in_name
 chat_outForwardedNameText=out_accent
-chat_inViaBotNameText=in_accent
+chat_inViaBotNameText=in_name
 chat_outViaBotNameText=out_accent
 chat_inPreviewLine=in_accent
 chat_outPreviewLine=out_accent
@@ -213,7 +213,7 @@ chat_inAudioProgress=in_bubble
 chat_outAudioProgress=out_bubble
 chat_inAudioSeekbar=in_secondary/50
 chat_outAudioSeekbar=out_secondary/50
-chat_inAudioSeekbarFill=in_accent
+chat_inAudioSeekbarFill=progress
 chat_outAudioSeekbarFill=out_accent
 chat_inAudioSeekbarSelected=in_secondary
 chat_outAudioSeekbarSelected=out_secondary
@@ -237,8 +237,8 @@ chat_inInstant=in_accent
 chat_outInstant=out_accent
 chat_inPsaNameText=in_accent
 chat_outPsaNameText=out_accent
-chat_inPollCorrectAnswer=online
-chat_outPollCorrectAnswer=online
+chat_inPollCorrectAnswer=success
+chat_outPollCorrectAnswer=success
 chat_inPollWrongAnswer=in_secondary
 chat_outPollWrongAnswer=out_secondary
 chat_mediaTimeBackground=service_bg/80
@@ -259,14 +259,14 @@ chat_unreadMessagesStartText=text2
 chat_unreadMessagesStartArrowIcon=text2
 chat_messagePanelBackground=input_bg
 chat_messagePanelText=input_text
-chat_messagePanelHint=text2
+chat_messagePanelHint=input_hint
 chat_messagePanelCursor=accent
-chat_messagePanelIcons=icon
-chat_messagePanelSend=accent
+chat_messagePanelIcons=input_icon
+chat_messagePanelSend=send_btn
 chat_messagePanelVoiceLock=icon
 chat_messagePanelVoiceLockBackground=surface
 chat_messagePanelVoicePressed=on_accent
-chat_messagePanelVoiceBackground=accent
+chat_messagePanelVoiceBackground=send_btn
 chat_messagePanelShadow=bg/0
 chat_messagePanelCancelInlineBot=icon
 chat_recordedVoiceBackground=accent
@@ -274,15 +274,15 @@ chat_recordedVoiceDot=accent
 chat_recordedVoicePlayPause=on_accent
 chat_recordedVoiceProgress=on_accent/50
 chat_recordedVoiceProgressInner=on_accent
-chat_recordVoiceCancel=accent
+chat_recordVoiceCancel=error
 chat_recordTime=text2
-chat_emojiPanelBackground=surface
+chat_emojiPanelBackground=emoji_panel_bg
 chat_emojiPanelShadowLine=divider
 chat_emojiPanelEmptyText=text2
 chat_emojiPanelIcon=icon
-chat_emojiPanelIconSelected=accent
+chat_emojiPanelIconSelected=tab_active
 chat_emojiPanelStickerPackSelector=bg2
-chat_emojiPanelStickerPackSelectorLine=accent
+chat_emojiPanelStickerPackSelectorLine=tab_active
 chat_emojiPanelBackspace=icon
 chat_emojiPanelTrendingTitle=text
 chat_emojiPanelTrendingDescription=text2
@@ -328,13 +328,13 @@ chat_attachCheckBoxCheck=on_accent
 chat_fieldOverlayText=accent
 chat_searchPanelIcons=icon
 chat_searchPanelText=text
-chat_status=header_text/70
+chat_status=header_subtitle
 chat_lockIcon=on_accent
 chat_muteIcon=icon
 chat_editDoneIcon=accent
-dialogBackground=surface
+dialogBackground=dialog_bg
 dialogBackgroundGray=bg2
-dialogTextBlack=text
+dialogTextBlack=menu_text
 dialogTextGray=text2
 dialogTextGray2=text2
 dialogTextGray3=text2
@@ -345,21 +345,21 @@ dialogTextBlue2=accent
 dialogTextBlue4=accent
 dialogTextLink=link
 dialogLinkSelection=selection
-dialogButton=accent
+dialogButton=button_bg
 dialogButtonSelector=accent/12
-dialogIcon=icon
+dialogIcon=menu_icon
 dialogGrayLine=divider
 dialogTopBackground=accent
 dialogInputField=divider
 dialogInputFieldActivated=accent
-dialogCheckboxSquareBackground=accent
+dialogCheckboxSquareBackground=checkbox
 dialogCheckboxSquareCheck=on_accent
 dialogCheckboxSquareUnchecked=text2
 dialogRadioBackground=text2
 dialogRadioBackgroundChecked=accent
-dialogRoundCheckBox=accent
+dialogRoundCheckBox=checkbox
 dialogRoundCheckBoxCheck=on_accent
-dialogLineProgress=accent
+dialogLineProgress=progress
 dialogLineProgressBackground=divider
 dialogScrollGlow=bg2
 dialogFloatingButton=accent
@@ -375,28 +375,28 @@ dialogBadgeText=on_accent
 dialogEmptyImage=text2
 dialogEmptyText=text2
 dialogSwipeRemove=accent
-switchTrack=text2/60
-switchTrackChecked=accent
-switchTrackBlue=text2/60
-switchTrackBlueChecked=accent
+switchTrack=switch_off
+switchTrackChecked=switch_on
+switchTrackBlue=switch_off
+switchTrackBlueChecked=switch_on
 switchTrackBlueThumb=surface
 switchTrackBlueThumbChecked=surface
 switchTrackBlueSelector=accent/12
 switchTrackBlueSelectorChecked=accent/12
-switch2Track=text2/60
-switch2TrackChecked=accent
-checkbox=accent
+switch2Track=switch_off
+switch2TrackChecked=switch_on
+checkbox=checkbox
 checkboxCheck=on_accent
 checkboxDisabled=divider
-checkboxSquareBackground=accent
+checkboxSquareBackground=checkbox
 checkboxSquareCheck=on_accent
 checkboxSquareUnchecked=text2
 checkboxSquareDisabled=divider
 radioBackground=text2
-radioBackgroundChecked=accent
-featuredStickers_addButton=accent
-featuredStickers_addButtonPressed=accent+bg:0.2
-featuredStickers_buttonText=on_accent
+radioBackgroundChecked=checkbox
+featuredStickers_addButton=button_bg
+featuredStickers_addButtonPressed=button_bg+bg:0.2
+featuredStickers_buttonText=button_text
 featuredStickers_addedIcon=accent
 featuredStickers_buttonProgress=on_accent
 featuredStickers_removeButtonText=accent
@@ -405,14 +405,14 @@ undo_background=surface
 undo_cancelColor=accent
 undo_infoColor=text
 inappPlayerBackground=surface
-inappPlayerPlayPause=accent
+inappPlayerPlayPause=progress
 inappPlayerTitle=text
 inappPlayerPerformer=text2
 inappPlayerClose=icon
 returnToCallBackground=accent
 returnToCallText=on_accent
 contextProgressInner1=accent/30
-contextProgressOuter1=accent
+contextProgressOuter1=progress
 player_actionBarSelector=text/12
 player_actionBarTitle=text
 player_actionBarSubtitle=text2
@@ -420,7 +420,7 @@ player_actionBarItems=icon
 player_background=surface
 player_time=text2
 player_progressBackground=divider
-player_progress=accent
+player_progress=progress
 player_button=icon
 player_buttonActive=accent
 sharedMedia_linkPlaceholder=bg2
@@ -450,6 +450,17 @@ statisticChartHintLine=divider
 statisticChartActiveLine=accent
 topics_unreadCounter=accent
 topics_unreadCounterMuted=badge_muted
+windowBackgroundWhiteRedText=error
+windowBackgroundWhiteRedText2=error
+windowBackgroundWhiteRedText3=error
+windowBackgroundWhiteRedText4=error
+windowBackgroundWhiteRedText5=error
+windowBackgroundWhiteRedText6=error
+dialogTextRed=error
+dialogTextRed2=error
+dialogRedIcon=error
+text_RedRegular=error
+text_RedBold=error
 """
 
 TDESKTOP_MAP = """
@@ -471,32 +482,32 @@ shadowFg=bg/0
 slideFadeOutBg=bg/50
 imageBg=bg2
 imageBgTransparent=surface
-activeButtonBg=accent
-activeButtonBgOver=accent+text:0.1
+activeButtonBg=button_bg
+activeButtonBgOver=button_bg+text:0.1
 activeButtonBgRipple=accent+text:0.2
-activeButtonFg=on_accent
-activeButtonFgOver=on_accent
-activeButtonSecondaryFg=on_accent
+activeButtonFg=button_text
+activeButtonFgOver=button_text
+activeButtonSecondaryFg=button_text
 activeButtonSecondaryFgOver=on_accent
-activeLineFg=accent
-activeLineFgError=accent
+activeLineFg=tab_active
+activeLineFgError=error
 lightButtonBg=surface
 lightButtonBgOver=surface+accent:0.12
 lightButtonBgRipple=surface+accent:0.22
 lightButtonFg=accent
 lightButtonFgOver=accent
-attentionButtonFg=accent
-attentionButtonFgOver=accent
+attentionButtonFg=error
+attentionButtonFgOver=error
 attentionButtonBgOver=surface+accent:0.12
 attentionButtonBgRipple=surface+accent:0.22
 outlineButtonBg=surface
 outlineButtonBgOver=surface+accent:0.12
 outlineButtonOutlineFg=accent
 outlineButtonBgRipple=surface+accent:0.22
-menuBg=surface
-menuBgOver=surface+text:0.07
-menuBgRipple=surface+text:0.14
-menuIconFg=icon
+menuBg=dialog_bg
+menuBgOver=dialog_bg+menu_text:0.07
+menuBgRipple=dialog_bg+menu_text:0.14
+menuIconFg=menu_icon
 menuIconFgOver=icon
 menuSubmenuArrowFg=icon
 menuFgDisabled=text2
@@ -507,17 +518,17 @@ scrollBg=text/8
 scrollBgOver=text/12
 smallCloseIconFg=icon
 smallCloseIconFgOver=text
-radialFg=on_accent
+radialFg=progress
 radialBg=bg/50
-placeholderFg=text2
-placeholderFgActive=text2
+placeholderFg=input_hint
+placeholderFgActive=input_hint
 inputBorderFg=divider
 filterInputBorderFg=accent
 filterInputInactiveBg=bg2
 filterInputActiveBg=surface
 checkboxFg=text2
 sliderBgInactive=divider
-sliderBgActive=accent
+sliderBgActive=progress
 tooltipBg=surface
 tooltipFg=text
 tooltipBorderFg=divider
@@ -538,19 +549,19 @@ titleButtonCloseBgActive=header
 titleButtonCloseFgActive=header_icon
 titleFg=header_text
 titleFgActive=header_text
-trayCounterBg=accent
+trayCounterBg=badge
 trayCounterBgMute=badge_muted
-trayCounterFg=on_accent
+trayCounterFg=badge_text
 trayCounterBgMacInvert=accent
 trayCounterFgMacInvert=on_accent
 layerBg=bg/60
 cancelIconFg=icon
 cancelIconFgOver=text
-boxBg=surface
-boxTextFg=text
-boxTextFgGood=online
-boxTextFgError=accent
-boxTitleFg=text
+boxBg=dialog_bg
+boxTextFg=menu_text
+boxTextFgGood=success
+boxTextFgError=error
+boxTitleFg=menu_text
 boxSearchBg=surface
 boxSearchCancelIconFg=icon
 boxSearchCancelIconFgOver=text
@@ -565,13 +576,13 @@ contactsBgOver=surface+text:0.06
 contactsNameFg=text
 contactsStatusFg=text2
 contactsStatusFgOver=text2
-contactsStatusFgOnline=accent
+contactsStatusFgOnline=online
 photoCropFadeBg=bg/60
 photoCropPointFg=text
 introBg=bg
 introTitleFg=text
 introDescriptionFg=text2
-introErrorFg=accent
+introErrorFg=error
 introCoverTopBg=accent
 introCoverBottomBg=accent
 introCoverIconsFg=on_accent
@@ -584,21 +595,21 @@ dialogsMenuIconFgOver=text
 dialogsBg=bg
 dialogsNameFg=text
 dialogsChatIconFg=text
-dialogsDateFg=text2
+dialogsDateFg=chat_date
 dialogsTextFg=text2
 dialogsTextFgService=accent
 dialogsDraftFg=accent
 dialogsVerifiedIconBg=accent
 dialogsVerifiedIconFg=on_accent
 dialogsSendingIconFg=text2
-dialogsSentIconFg=accent
-dialogsUnreadBg=accent
+dialogsSentIconFg=online
+dialogsUnreadBg=badge
 dialogsUnreadBgMuted=badge_muted
-dialogsUnreadFg=on_accent
+dialogsUnreadFg=badge_text
 dialogsBgOver=bg+text:0.06
 dialogsNameFgOver=text
 dialogsChatIconFgOver=text
-dialogsDateFgOver=text2
+dialogsDateFgOver=chat_date
 dialogsTextFgOver=text2
 dialogsTextFgServiceOver=accent
 dialogsDraftFgOver=accent
@@ -606,9 +617,9 @@ dialogsVerifiedIconBgOver=accent
 dialogsVerifiedIconFgOver=on_accent
 dialogsSendingIconFgOver=text2
 dialogsSentIconFgOver=accent
-dialogsUnreadBgOver=accent
+dialogsUnreadBgOver=badge
 dialogsUnreadBgMutedOver=badge_muted
-dialogsUnreadFgOver=on_accent
+dialogsUnreadFgOver=badge_text
 dialogsBgActive=accent
 dialogsNameFgActive=on_accent
 dialogsChatIconFgActive=on_accent
@@ -631,12 +642,12 @@ dialogsForwardFg=on_accent
 searchedBarBg=bg2
 searchedBarFg=text2
 topBarBg=header
-emojiPanBg=surface
-emojiPanCategories=surface
+emojiPanBg=emoji_panel_bg
+emojiPanCategories=emoji_panel_bg
 emojiPanHeaderFg=text2
-emojiPanHeaderBg=surface
+emojiPanHeaderBg=emoji_panel_bg
 emojiIconFg=icon
-emojiIconFgActive=accent
+emojiIconFgActive=tab_active
 stickerPanDeleteBg=bg/60
 stickerPanDeleteFg=text
 stickerPreviewBg=bg/80
@@ -646,8 +657,8 @@ historyCaptionInFg=in_text
 historyCaptionOutFg=out_text
 historyFileNameInFg=in_text
 historyFileNameOutFg=out_text
-historyOutIconFg=out_accent
-historyOutIconFgSelected=out_accent
+historyOutIconFg=out_check
+historyOutIconFgSelected=out_check
 historyIconFgInverted=service_text
 historySendingOutIconFg=out_secondary
 historySendingInIconFg=in_secondary
@@ -660,22 +671,22 @@ historyUnreadBarBorder=divider
 historyUnreadBarFg=text2
 historyForwardChooseBg=service_bg/80
 historyForwardChooseFg=service_text
-historyPeer1NameFg=in_accent
+historyPeer1NameFg=in_name
 historyPeer1UserpicBg=accent
 historyPeerUserpicFg=on_accent
 historyScrollBarBg=text/30
 historyScrollBarBgOver=text/45
 historyScrollBg=text/8
 historyScrollBgOver=text/12
-historyLinkInFg=in_accent
-historyLinkOutFg=out_accent
+historyLinkInFg=in_link
+historyLinkOutFg=out_link
 historyComposeAreaBg=input_bg
 historyComposeAreaFg=input_text
-historyComposeAreaFgService=text2
-historyComposeIconFg=icon
+historyComposeAreaFgService=input_hint
+historyComposeIconFg=input_icon
 historyComposeIconFgOver=accent
-historySendIconFg=accent
-historySendIconFgOver=accent
+historySendIconFg=send_btn
+historySendIconFgOver=send_btn
 historyPinnedBg=surface
 historyReplyBg=input_bg
 historyReplyIconFg=accent
@@ -696,8 +707,8 @@ msgOutBg=out_bubble
 msgOutBgSelected=out_bubble+accent:0.15
 msgSelectOverlay=selection/40
 msgStickerOverlay=selection/40
-msgInServiceFg=in_accent
-msgInServiceFgSelected=in_accent
+msgInServiceFg=in_name
+msgInServiceFgSelected=in_name
 msgOutServiceFg=out_accent
 msgOutServiceFgSelected=out_accent
 msgInShadow=in_bubble/0
@@ -776,7 +787,7 @@ mainMenuCoverFg=header_text
 mainMenuCloudFg=header_text
 mainMenuCloudBg=header+header_text:0.15
 mediaPlayerBg=surface
-mediaPlayerActiveFg=accent
+mediaPlayerActiveFg=progress
 mediaPlayerInactiveFg=divider
 mediaPlayerDisabledFg=divider
 mediaviewFileBg=surface
@@ -794,18 +805,18 @@ sideBarTextFg=text2
 sideBarTextFgActive=accent
 sideBarIconFg=icon
 sideBarIconFgActive=accent
-sideBarBadgeBg=accent
+sideBarBadgeBg=badge
 sideBarBadgeBgMuted=badge_muted
-sideBarBadgeFg=on_accent
+sideBarBadgeFg=badge_text
 callBg=bg/95
 callNameFg=text
 callFingerprintBg=bg/60
 callStatusFg=text2
 callIconFg=text
-callAnswerBg=online
+callAnswerBg=success
 callAnswerRipple=online
 callAnswerBgOuter=online/30
-callHangupBg=accent
+callHangupBg=error
 callHangupRipple=accent
 callCancelBg=surface
 callCancelFg=text2
@@ -819,6 +830,7 @@ callBarFg=on_accent
 importantTooltipBg=surface
 importantTooltipFg=text
 importantTooltipFgLink=accent
+
 """
 
 
@@ -843,11 +855,47 @@ def _resolve(expr: str, roles: dict) -> tuple[str, int]:
     return roles[expr], alpha
 
 
+def _overrides(roles: dict, platform: str) -> dict[str, tuple[str, int]]:
+    """Ручные значения отдельных ключей: roles["_overrides"][platform][key] = "#rrggbb" или "#rrggbbaa"."""
+    out = {}
+    for k, v in ((roles.get("_overrides") or {}).get(platform) or {}).items():
+        v = str(v).strip().lstrip("#")
+        if re.fullmatch(r"[0-9a-fA-F]{6}([0-9a-fA-F]{2})?", v):
+            out[k] = ("#" + v[:6].lower(), int(v[6:8], 16) if len(v) == 8 else 255)
+    return out
+
+
+def resolved_keys(roles: dict, platform: str) -> list[dict]:
+    """Все ключи платформы с итоговыми цветами — для «тонкой настройки» в редакторе."""
+    table = ANDROID_MAP if platform == "android" else TDESKTOP_MAP
+    ov = _overrides(roles, platform)
+    out = []
+    seen = set()
+    for key, expr in _parse_map(table):
+        if key in seen:
+            continue
+        seen.add(key)
+        hx, a = ov.get(key) or _resolve(expr, roles)
+        out.append({"key": key, "expr": expr, "color": hx, "alpha": round(a / 2.55), "override": key in ov})
+    for key, (hx, a) in ov.items():  # свои ключи, которых нет в таблице
+        if key not in seen:
+            out.append({"key": key, "expr": "свой ключ", "color": hx, "alpha": round(a / 2.55), "override": True})
+    return out
+
+
 def to_attheme(roles: dict, wallpaper: bytes | None = None) -> bytes:
     lines = []
+    ov = _overrides(roles, "android")
+    done = set()
     for key, expr in _parse_map(ANDROID_MAP):
-        hx, a = _resolve(expr, roles)
+        if key in done:
+            continue
+        done.add(key)
+        hx, a = ov.get(key) or _resolve(expr, roles)
         lines.append(f"{key}={argb_int(hx, a)}")
+    for key, (hx, a) in ov.items():
+        if key not in done:
+            lines.append(f"{key}={argb_int(hx, a)}")
     data = ("\n".join(lines) + "\n").encode()
     if wallpaper:
         jpg = _to_jpeg(wallpaper, (1440, 2560))
@@ -857,8 +905,14 @@ def to_attheme(roles: dict, wallpaper: bytes | None = None) -> bytes:
 
 def to_tdesktop_palette(roles: dict) -> str:
     lines = ["// Telegram Desktop palette — сгенерировано TG Studio"]
-    for key, expr in _parse_map(TDESKTOP_MAP):
-        hx, a = _resolve(expr, roles)
+    ov = _overrides(roles, "tdesktop")
+    done = set()
+    items = list(_parse_map(TDESKTOP_MAP)) + [(k, None) for k in ov]
+    for key, expr in items:
+        if key in done:
+            continue
+        done.add(key)
+        hx, a = ov.get(key) or _resolve(expr, roles)
         suffix = "" if a == 255 else f"{a:02x}"
         lines.append(f"{key}: {hx}{suffix};")
     return "\n".join(lines) + "\n"
@@ -894,7 +948,7 @@ def to_tgios(roles: dict, name: str = "TG Studio") -> str:
         hl = _h(mix(roles[f"{p}_bubble"], roles["accent"], 0.15))
         return (f"    {side}:\n      bubble:\n{bubble(b, hl)}"
                 f"      primaryText: {r[f'{p}_text']}\n      secondaryText: {r[f'{p}_secondary']}\n"
-                f"      linkText: {r[f'{p}_accent']}\n      linkHighlight: {r[f'{p}_accent']}\n"
+                f"      linkText: {r[f'{p}_link']}\n      linkHighlight: {r[f'{p}_link']}\n"
                 f"      scam: {r[f'{p}_accent']}\n      textHighlight: {r['selection']}\n"
                 f"      accentText: {r[f'{p}_accent']}\n      accentControl: {r[f'{p}_accent']}\n"
                 f"      mediaActiveControl: {r[f'{p}_accent']}\n      mediaInactiveControl: {r[f'{p}_secondary']}\n"
@@ -937,7 +991,7 @@ root:
     button: {r['header_icon']}
     disabledButton: {r['text2']}
     primaryText: {r['header_text']}
-    secondaryText: {r['header_text']}
+    secondaryText: {r['header_subtitle']}
     control: {r['header_icon']}
     accentText: {r['accent']}
     background: {r['header']}
@@ -963,7 +1017,7 @@ list:
   disabledText: {r['text2']}
   accent: {r['accent']}
   highlighted: {r['accent']}
-  destructive: {r['accent']}
+  destructive: {r['error']}
   placeholderText: {r['text2']}
   itemBlocksBg: {r['surface']}
   itemHighlightedBg: {r['selection']}
@@ -972,17 +1026,17 @@ list:
   disclosureArrow: {r['icon']}
   sectionHeaderText: {r['text2']}
   freeText: {r['text2']}
-  freeTextError: {r['accent']}
-  freeTextSuccess: {r['online']}
+  freeTextError: {r['error']}
+  freeTextSuccess: {r['success']}
   freeMonoIcon: {r['icon']}
   switch:
-    frame: {r['divider']}
+    frame: {r['switch_off']}
     handle: {r['surface']}
-    content: {r['accent']}
+    content: {r['switch_on']}
     positive: {r['online']}
     negative: {r['accent']}
   check:
-    bg: {r['accent']}
+    bg: {r['checkbox']}
     stroke: {r['text2']}
     fg: {r['on_accent']}
   controlSecondary: {r['text2']}
@@ -994,23 +1048,23 @@ chatList:
   bg: {r['bg']}
   itemSeparator: {r['divider']}
   itemBg: {r['bg']}
-  pinnedItemBg: {r['bg2']}
+  pinnedItemBg: {r['pinned_bg']}
   itemHighlightedBg: {r['selection']}
   itemSelectedBg: {r['selection']}
   title: {r['text']}
   secretTitle: {r['online']}
-  dateText: {r['text2']}
+  dateText: {r['chat_date']}
   authorName: {r['text']}
   messageText: {r['text2']}
   messageHighlightedText: {r['text']}
   messageDraftText: {r['accent']}
-  checkmark: {r['accent']}
+  checkmark: {r['online']}
   pendingIndicator: {r['text2']}
   failedFill: {r['accent']}
   failedForeground: {r['on_accent']}
   muteIcon: {r['icon']}
-  unreadBadgeActiveBg: {r['accent']}
-  unreadBadgeActiveText: {r['on_accent']}
+  unreadBadgeActiveBg: {r['badge']}
+  unreadBadgeActiveText: {r['badge_text']}
   unreadBadgeInactiveBg: {r['badge_muted']}
   unreadBadgeInactiveText: {r['bg']}
   reactionBadgeActiveBg: {r['accent']}
@@ -1088,13 +1142,13 @@ chat:
   inputPanel:
     panelBg: {r['input_bg']}
     panelSeparator: {r['divider']}
-    panelControlAccent: {r['accent']}
-    panelControl: {r['icon']}
+    panelControlAccent: {r['send_btn']}
+    panelControl: {r['input_icon']}
     panelControlDisabled: {r['text2']}
     panelControlDestructive: {r['accent']}
     inputBg: {r['bg']}
     inputStroke: {r['divider']}
-    inputPlaceholder: {r['text2']}
+    inputPlaceholder: {r['input_hint']}
     inputText: {r['input_text']}
     inputControl: {r['icon']}
     actionControlBg: {r['accent']}
@@ -1113,13 +1167,13 @@ chat:
     panelHighlightedIcon: {r['accent']}
     panelContentVibrantOverlay: {r['text2']}
     panelContentControlVibrantOverlay: {r['text2']}
-    stickersBg: {r['surface']}
+    stickersBg: {r['emoji_panel_bg']}
     stickersSectionText: {r['text2']}
     stickersSearchBg: {r['input_bg']}
     stickersSearchPlaceholder: {r['text2']}
     stickersSearchPrimary: {r['text']}
     stickersSearchControl: {r['icon']}
-    gifsBg: {r['surface']}
+    gifsBg: {r['emoji_panel_bg']}
   inputButtonPanel:
     panelBg: {r['surface']}
     panelSeparator: {r['divider']}
@@ -1138,13 +1192,13 @@ chat:
 actionSheet:
   dim: 000000
   bgType: {"dark" if dark else "light"}
-  opaqueItemBg: {r['surface']}
-  itemBg: {r['surface']}
+  opaqueItemBg: {r['dialog_bg']}
+  itemBg: {r['dialog_bg']}
   opaqueItemHighlightedBg: {r['selection']}
   itemHighlightedBg: {r['selection']}
   opaqueItemSeparator: {r['divider']}
   standardActionText: {r['accent']}
-  destructiveActionText: {r['accent']}
+  destructiveActionText: {r['error']}
   disabledActionText: {r['text2']}
   primaryText: {r['text']}
   secondaryText: {r['text2']}
@@ -1158,14 +1212,14 @@ actionSheet:
   checkContent: {r['on_accent']}
 contextMenu:
   dim: 000000
-  background: {r['surface']}
+  background: {r['dialog_bg']}
   itemSeparator: {r['divider']}
   sectionSeparator: {r['bg2']}
-  itemBg: {r['surface']}
+  itemBg: {r['dialog_bg']}
   itemHighlightedBg: {r['selection']}
-  primary: {r['text']}
+  primary: {r['menu_text']}
   secondary: {r['text2']}
-  destructive: {r['accent']}
+  destructive: {r['error']}
   badgeFill: {r['accent']}
   badgeForeground: {r['on_accent']}
   badgeInactiveFill: {r['badge_muted']}

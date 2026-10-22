@@ -188,16 +188,19 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .screen { width: 100%; height: 100%; border-radius: 26px; overflow: hidden; display: flex; flex-direction: column; background: var(--t-bg); color: var(--t-text); font-size: 12px; }
 .tg-head { background: var(--t-header); color: var(--t-header_text); padding: 26px 12px 10px; display: flex; align-items: center; gap: 10px; font-weight: 700; }
 .tg-head .ic { color: var(--t-header_icon); }
-.tg-head small { display: block; font-weight: 500; opacity: .75; font-size: 10.5px; }
+.tg-head small { display: block; font-weight: 500; color: var(--t-header_subtitle); font-size: 10.5px; }
 .tg-list { flex: 1; overflow: hidden; background: var(--t-bg); }
 .tg-item { display: grid; grid-template-columns: 38px 1fr auto; gap: 9px; padding: 8px 12px; border-bottom: 1px solid var(--t-divider); align-items: center; }
 .tg-ava { width: 38px; height: 38px; border-radius: 50%; background: var(--t-accent); color: var(--t-on_accent); display: grid; place-items: center; font-weight: 700; }
 .tg-item b { color: var(--t-text); display: block; font-size: 12.5px; }
 .tg-item span { color: var(--t-text2); font-size: 11.5px; }
-.tg-item i { font-style: normal; color: var(--t-text2); font-size: 10px; text-align: right; }
-.tg-badge { background: var(--t-accent); color: var(--t-on_accent); border-radius: 99px; font-size: 10px; padding: 1px 6px; display: inline-block; margin-top: 3px; }
+.tg-item i { font-style: normal; color: var(--t-chat_date); font-size: 10px; text-align: right; }
+.tg-badge { background: var(--t-badge); color: var(--t-badge_text); border-radius: 99px; font-size: 10px; padding: 1px 6px; display: inline-block; margin-top: 3px; }
 .tg-badge.m { background: var(--t-badge_muted); }
-.tg-fab { position: absolute; }
+.screen { position: relative; }
+.tg-list { position: relative; }
+.tg-fab { position: absolute; right: 12px; bottom: 12px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--t-fab_bg); color: var(--t-fab_icon); font-size: 16px; box-shadow: 0 3px 8px rgba(0,0,0,.3); }
+.bub .ck { font-weight: 400; color: var(--t-out_check); }
 .tg-chat { flex: 1; background: var(--t-chat_bg); background-size: cover; background-position: center; padding: 10px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
 .tg-date { align-self: center; background: color-mix(in srgb, var(--t-service_bg) 80%, transparent); color: var(--t-service_text); border-radius: 99px; padding: 2px 9px; font-size: 10.5px; }
 .bub { max-width: 78%; padding: 6px 9px; border-radius: 14px; font-size: 12px; position: relative; }
@@ -206,14 +209,15 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .bub .t { font-size: 9.5px; float: right; margin: 6px 0 0 8px; }
 .bub.in .t { color: var(--t-in_secondary); }
 .bub.out .t { color: var(--t-out_secondary); }
-.bub .nm { font-weight: 700; font-size: 11px; color: var(--t-in_accent); }
-.bub.out .lk { color: var(--t-out_accent); text-decoration: underline; }
-.bub.in .lk { color: var(--t-in_accent); text-decoration: underline; }
+.bub .nm { font-weight: 700; font-size: 11px; color: var(--t-in_name); }
+.bub.out .lk { color: var(--t-out_link); text-decoration: underline; }
+.bub.in .lk { color: var(--t-in_link); text-decoration: underline; }
 .bub .rp { border-left: 2px solid var(--t-out_accent); padding-left: 6px; margin-bottom: 3px; font-size: 10.5px; color: var(--t-out_accent); }
-.tg-input { background: var(--t-input_bg); color: var(--t-text2); display: flex; gap: 8px; align-items: center; padding: 9px 12px; }
-.tg-input .send { margin-left: auto; color: var(--t-accent); font-size: 15px; }
+.tg-input { background: var(--t-input_bg); color: var(--t-input_hint); display: flex; gap: 8px; align-items: center; padding: 9px 12px; }
+.tg-input .send { color: var(--t-send_btn); font-size: 15px; }
+.tg-input .ic { color: var(--t-input_icon); }
 .tg-tabs { display: flex; justify-content: space-around; background: var(--t-surface); padding: 7px 0 12px; color: var(--t-icon); font-size: 10px; border-top: 1px solid var(--t-divider); }
-.tg-tabs .on { color: var(--t-accent); }
+.tg-tabs .on { color: var(--t-tab_active); }
 
 /* ---------- emoji composer ---------- */
 .board-wrap { overflow: auto; max-height: 78vh; background: repeating-conic-gradient(#1d1b27 0 25%, #181622 0 50%) 0 0/20px 20px; border-radius: 14px; border: 1px solid var(--line); padding: 10px; }

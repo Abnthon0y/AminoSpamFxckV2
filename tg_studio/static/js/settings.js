@@ -73,8 +73,21 @@ export async function initSettings(root) {
           <label class="field">api_id<input type="text" id="stApiId"></label>
           <label class="field">api_hash<input type="password" id="stApiHash"></label>
         </div>
-        <label class="field" style="margin-top:10px">Телефон<input type="text" id="stPhone" placeholder="+7…"></label>
-        <div class="row" style="margin-top:10px"><button class="btn" id="stSendCode" data-busy="Отправляю…">📨 Получить код</button></div>
+        <div class="row" style="margin-top:12px"><button class="btn small ghost" id="stSaveTg2">💾 Сохранить api_id / api_hash</button></div>
+        <div class="sep" style="margin:12px 0"></div>
+        <h3 style="margin:0 0 8px">📱 Способ 1 — по QR-коду <span class="hint">рекомендуется, код не нужен</span></h3>
+        <div class="row"><button class="btn" id="stQr" data-busy="Готовлю QR…">Показать QR-код</button></div>
+        <div id="stQrBox" hidden style="margin-top:10px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+          <div id="stQrImg" style="background:#fff;padding:10px;border-radius:12px;width:220px;height:220px"></div>
+          <div class="small" style="max-width:300px">На телефоне открой <b>Telegram → Настройки → Устройства → Подключить устройство</b>
+            и наведи камеру на этот код. <div id="stQrState" class="muted" style="margin-top:8px"></div></div>
+        </div>
+        <div class="sep" style="margin:12px 0"></div>
+        <h3 style="margin:0 0 8px">✉️ Способ 2 — по номеру и коду</h3>
+        <label class="field">Телефон<input type="text" id="stPhone" placeholder="+79991234567"></label>
+        <div class="row" style="margin-top:10px"><button class="btn" id="stSendCode" data-busy="Отправляю…">📨 Получить код</button>
+          <button class="btn ghost" id="stResend" data-busy="Запрашиваю…" hidden>Код не пришёл — прислать иначе</button></div>
+        <div class="help" id="stCodeInfo" style="margin-top:10px" hidden></div>
         <div class="kv" style="margin-top:10px">
           <label class="field">Код из Telegram<input type="text" id="stCode"></label>
           <label class="field">Облачный пароль (если есть)<input type="password" id="stPass"></label>
@@ -142,10 +155,28 @@ export async function initSettings(root) {
     toast("Сохранено ✓", "ok");
   });
   $("#stSaveTg").onclick = (e) => busy(e.currentTarget, saveTg);
+  $("#stSaveTg2").onclick = (e) => busy(e.currentTarget, saveTg);
+  const showSent = (r) => {
+    const box = $("#stCodeInfo");
+    box.hidden = false;
+    box.innerHTML = `📨 Код отправлен <b>${esc(r.via)}</b>.` +
+      (r.next ? `<br>Если не придёт — нажми «Код не пришёл», Telegram пришлёт ${esc(r.next)}${r.timeout ? ` (можно через ${r.timeout} c)` : ""}.` : "") +
+      `<br><span class="muted">Никому не сообщай этот код. Не пришёл совсем? Войди по QR-коду выше.</span>`;
+    $("#stResend").hidden = !r.next;
+  };
   $("#stSendCode").onclick = (e) => busy(e.currentTarget, async () => {
     await saveTg(true);
-    await api("/api/tg/send_code", { phone: $("#stPhone").value });
-    toast("Код отправлен в Telegram ✓", "ok");
+    const r = await api("/api/tg/send_code", { phone: $("#stPhone").value });
+    if (r.authorized) { toast(`Уже вошли как ${r.name} ✓`, "ok"); return tgState(); }
+    showSent(r);
+  });
+  $("#stResend").onclick = (e) => busy(e.currentTarget, async () => showSent(await api("/api/tg/resend_code", {})));
+  $("#stQr").onclick = (e) => busy(e.currentTarget, async () => {
+    await saveTg(true);
+    const r = await api("/api/tg/qr_start", {});
+    if (r.status === "done") { toast(`Уже вошли как ${r.name} ✓`, "ok"); return tgState(); }
+    $("#stQrBox").hidden = false;
+    pollQr(r.url);
   });
   $("#stSignIn").onclick = (e) => busy(e.currentTarget, async () => {
     const r = await api("/api/tg/sign_in", { code: $("#stCode").value || null, password: $("#stPass").value || null });
@@ -155,6 +186,44 @@ export async function initSettings(root) {
   });
   $("#stLogout").onclick = (e) => busy(e.currentTarget, async () => { await api("/api/tg/logout", {}); tgState(); });
   tgState();
+}
+
+// ---------- QR-вход ----------
+let qrTimer = null, qrUrl = null;
+async function loadQrLib() {
+  if (window.QRCode) return true;
+  await new Promise((res) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+    sc.onload = res;
+    sc.onerror = res;
+    document.head.append(sc);
+  });
+  return !!window.QRCode;
+}
+async function drawQr(url) {
+  if (url === qrUrl) return;
+  qrUrl = url;
+  const box = $("#stQrImg");
+  box.innerHTML = "";
+  if (await loadQrLib()) new window.QRCode(box, { text: url, width: 200, height: 200, correctLevel: window.QRCode.CorrectLevel.L });
+  else box.innerHTML = `<div class="small" style="color:#000;word-break:break-all">Нет интернета для QR-картинки. Ссылка: ${esc(url)}</div>`;
+}
+function pollQr(url) {
+  clearTimeout(qrTimer);
+  qrUrl = null;
+  drawQr(url);
+  $("#stQrState").textContent = "⏳ Жду сканирования…";
+  const tick = async () => {
+    let st;
+    try { st = await api("/api/tg/qr_status"); } catch (e) { $("#stQrState").textContent = "❌ " + e.message; return; }
+    if (st.status === "waiting") { drawQr(st.url); qrTimer = setTimeout(tick, 2000); return; }
+    if (st.status === "done") { $("#stQrState").textContent = `✅ Вошли как ${st.name}`; $("#stQrBox").hidden = true; toast(`Вошли как ${st.name} ✓`, "ok"); tgState(); return; }
+    if (st.status === "password") { $("#stQrState").innerHTML = "🔐 Включена двухэтапная проверка: введи <b>облачный пароль</b> ниже и нажми «Войти»."; $("#stPass").focus(); return; }
+    if (st.status === "expired") { $("#stQrState").textContent = "⌛ Время вышло — нажми «Показать QR-код» ещё раз"; return; }
+    $("#stQrState").textContent = "❌ " + (st.error || st.status);
+  };
+  qrTimer = setTimeout(tick, 2000);
 }
 
 function drawFields() {
