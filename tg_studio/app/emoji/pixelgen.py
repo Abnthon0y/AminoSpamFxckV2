@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from .. import rules
 from ..ai.providers import AIClient, generate_image
 from ..imageutil import remove_background, trim_transparent
 from . import convert
@@ -165,7 +166,8 @@ def image_to_pixel(img: Image.Image, size: int = 24, colors: int = 12, remove_bg
     return _pad_to(arr, size)
 
 
-def add_outline(arr: np.ndarray, color=(30, 22, 40, 255)) -> np.ndarray:
+def add_outline(arr: np.ndarray, color=None) -> np.ndarray:
+    color = color or _outline_color()
     a = arr[..., 3] > 0
     grown = a.copy()
     grown[1:] |= a[:-1]
@@ -325,7 +327,26 @@ async def generate(prompt: str, mode: str = "image", size: int = 24, animation: 
         frames = animate(add_outline(base) if outline else base, animation, n_frames, seed)
     if animation == "none" and len(frames) > 1 and mode != "ai":
         frames = frames[:1]
+    palette = rules.pixel_palette()
+    if palette:  # правило: рисовать только заданными цветами
+        frames = [snap_palette(f, palette) for f in frames]
     return {"frames": frames, "fps": fps, "seed": seed}
+
+
+def snap_palette(arr: np.ndarray, palette: list[tuple[int, int, int]]) -> np.ndarray:
+    pal = np.array(palette, dtype=np.float32)
+    rgb = arr[..., :3].astype(np.float32).reshape(-1, 1, 3)
+    idx = ((rgb - pal[None]) ** 2).sum(-1).argmin(1)
+    out = arr.copy()
+    out[..., :3] = pal[idx].reshape(arr.shape[:2] + (3,)).astype(np.uint8)
+    return out
+
+
+def _outline_color() -> tuple[int, int, int, int]:
+    c = rules.section("pixel").get("outline_color", "").strip().lstrip("#")
+    if len(c) == 6:
+        return (int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16), 255)
+    return (30, 22, 40, 255)
 
 
 def upscale_frames(frames: list[np.ndarray], out: int = 100) -> list[Image.Image]:

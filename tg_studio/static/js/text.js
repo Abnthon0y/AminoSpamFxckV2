@@ -122,6 +122,7 @@ export async function initText(root) {
           <button class="btn small ghost" id="txUndo">↶ Отмена</button>
           <button class="btn small ghost" id="txUnwrap" title="Склеить строки абзаца">⇥ Склеить</button>
           <button class="btn small ghost" id="txClear">🧹</button>
+          <button class="btn small" id="txRules" title="Замены, запрещённые символы, шапка и подпись из раздела «Правила»">📜 Применить правила</button>
           <span class="muted small" id="txStats" style="margin-left:auto"></span>
         </div>
       </div>
@@ -182,6 +183,14 @@ export async function initText(root) {
   $("#txUnwrap").onclick = () => setText(ed.value.replace(/([^\n])\n(?=[^\n])/g, "$1 ").replace(/⠀+/g, ""));
   $("#txUndo").onclick = undo;
   $("#txClear").onclick = () => setText("");
+  $("#txRules").onclick = (e) => busy(e.currentTarget, async () => {
+    const r = await api("/api/rules/apply_text", { text: $("#txEd").value });
+    setText(r.text);
+  });
+  api("/api/rules").then((d) => {
+    const w = +d.rules.text.width;
+    if (w && !store.get("text:width", 0)) { S.width = w; $("#txW").value = w; $("#txWO").textContent = w; render(); }
+  }).catch(() => {});
   $$("#txTheme button").forEach((b) => (b.onclick = () => { $$("#txTheme button").forEach((x) => x.classList.toggle("on", x === b)); S.theme = b.dataset.v; render(); }));
   $("#txQuote").onchange = render;
   $("#txBold1").onchange = render;
@@ -467,7 +476,7 @@ function drawAI(p) {
     const res = $("#aiRes");
     res.innerHTML = "";
     if (compose) {
-      const txt = composePost(r.result, payload.style);
+      const txt = (await api("/api/rules/apply_text", { text: composePost(r.result, payload.style) })).text;
       if ($("#aiReplace").checked) setText(txt); else insert("\n" + txt + "\n");
     } else if (Array.isArray(r.result)) {
       r.result.forEach((x) => res.append(listBtn(x)));

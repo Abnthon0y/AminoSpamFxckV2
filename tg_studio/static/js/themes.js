@@ -130,6 +130,7 @@ export async function initThemes(root) {
   $("#thExport").onclick = (e) => busy(e.currentTarget, exportFiles);
   $("#thPublish").onclick = (e) => busy(e.currentTarget, publish);
 
+  root.addEventListener("shown", async () => { S.meta = await api("/api/theme/meta"); if (S.roles) drawRoles(); });
   const saved = store.get("theme:last");
   if (saved?.roles) { S.name = saved.name || S.name; $("#thName").value = S.name; setRoles(saved.roles, false); }
   renderPhones();
@@ -252,7 +253,7 @@ function drawRoles() {
     const worst = mine.sort((a, b) => a.ratio / a.need - b.ratio / b.need)[0];
     const badge = worst ? `<span class="badge-c ${worst.ok ? "" : "bad"}" title="контраст с ${worst.bg}, нужно ≥ ${worst.need}">${worst.ratio.toFixed(1)}</span>` : "<span></span>";
     const row = h(`<div class="role ${S.selRole === k ? "target" : ""}">
-      <input type="color" value="${S.roles[k]}"><div>${esc(S.meta.labels[k])}<br><code>${k}</code></div>
+      <input type="color" value="${S.roles[k]}"><div>${S.meta.locked?.[k] ? "🔒 " : ""}${esc(S.meta.labels[k])}<br><code>${k}</code></div>
       <input type="text" value="${S.roles[k]}" style="font:11px var(--mono);padding:4px 6px">${badge}</div>`);
     const ci = $("input[type=color]", row);
     const ti = $("input[type=text]", row);

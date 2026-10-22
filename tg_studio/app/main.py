@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
-from . import config
+from . import config, rules
 from .ai.providers import PROVIDER_INFO, AIClient, AIError, generate_image, test_connection
 from .config import LUT_DIR, OUTPUT_DIR, STATIC_DIR, UPLOAD_DIR
 from .emoji import composer, pixelgen
@@ -212,32 +212,58 @@ async def theme_palette(data: dict = Body(...)):
 
 @app.get("/api/theme/meta")
 async def theme_meta():
+    boost = float(rules.section("themes").get("contrast_boost") or 0) / 100
     return {"roles": th_gen.ROLE_KEYS, "labels": th_gen.ROLE_LABELS, "styles": th_gen.STYLES,
-            "rules": th_gen.CONTRAST_RULES}
+            "rules": [(fg, bg, round(min(21.0, r * (1 + boost)), 2)) for fg, bg, r in th_gen.CONTRAST_RULES],
+            "locked": rules.theme_locked()}
+
+
+def _theme_rules() -> tuple[str, float, dict, list]:
+    r = rules.section("themes")
+    return r.get("mode") or "", float(r.get("contrast_boost") or 0) / 100, rules.theme_locked(), r.get("styles") or []
+
+
+def _finish_themes(themes: list[dict]) -> list[dict]:
+    """Применяет жёсткие правила тем: закреплённые цвета и усиленный контраст."""
+    _, boost, locked, _ = _theme_rules()
+    out = []
+    for t in themes:
+        meta = t.get("_meta")
+        t = th_gen.fix_contrast(t, boost, locked) if (boost or locked) else t
+        if meta:
+            t["_meta"] = meta
+        out.append({"roles": t, "report": th_gen.contrast_report(t, boost)})
+    return out
 
 
 @app.post("/api/theme/generate")
 async def theme_generate(data: dict = Body(...)):
     pal = data["palette"]
-    themes = th_gen.theme_variants(pal, data.get("mode", "auto"), int(data.get("count", 6)), data.get("brightness"))
-    return {"themes": [{"roles": t, "report": th_gen.contrast_report(t)} for t in themes]}
+    mode_rule, _, _, styles = _theme_rules()
+    themes = th_gen.theme_variants(pal, mode_rule or data.get("mode", "auto"), int(data.get("count", 6)),
+                                   data.get("brightness"), styles)
+    return {"themes": _finish_themes(themes)}
 
 
 @app.post("/api/theme/ai")
 async def theme_ai(data: dict = Body(...)):
     pal = data["palette"]
-    ai = AIClient()
+    ai = AIClient(section="themes")
     count = int(data.get("count", 3))
-    raw = await ai.chat_json(th_gen.ai_prompt(pal, data.get("description", ""), data.get("mode", "auto"), count),
+    mode_rule, _, locked, _ = _theme_rules()
+    desc = data.get("description", "")
+    if locked:
+        desc += " Обязательно используй цвета: " + ", ".join(f"{k}={v}" for k, v in locked.items())
+    raw = await ai.chat_json(th_gen.ai_prompt(pal, desc, mode_rule or data.get("mode", "auto"), count),
                              system=th_gen.AI_SYSTEM, max_tokens=12000)
-    themes = th_gen.normalize_ai_themes(raw, pal)
-    return {"themes": [{"roles": t, "report": th_gen.contrast_report(t)} for t in themes]}
+    return {"themes": _finish_themes(th_gen.normalize_ai_themes(raw, pal))}
 
 
 @app.post("/api/theme/fix")
 async def theme_fix(data: dict = Body(...)):
-    roles = th_gen.fix_contrast(data["roles"]) if data.get("fix", True) else data["roles"]
-    return {"roles": roles, "report": th_gen.contrast_report(roles)}
+    _, boost, locked, _ = _theme_rules()
+    roles = th_gen.fix_contrast(data["roles"], boost, locked) if data.get("fix", True) else data["roles"]
+    return {"roles": roles, "report": th_gen.contrast_report(roles, boost)}
 
 
 def _wallpaper_bytes(data: dict) -> bytes | None:
@@ -341,17 +367,19 @@ async def lang_preview(data: dict = Body(...)):
         src = data["texts"]
     mode = data.get("mode", "charmap")
     mapping = _lang_map(data)
+    work = rules.lang_pre(src, lang_b.split_protected)
     if mode == "charmap":
-        out = {k: lang_b.apply_map(v, mapping) for k, v in src.items()}
+        out = {k: lang_b.apply_map(v, mapping) for k, v in work.items()}
     else:
         class _J:  # мини-заглушка задачи для предпросмотра
             def update(self, *a, **k):
                 pass
-        out = await lang_b.ai_rewrite(_J(), src, data.get("description", ""), data.get("target_lang", "русский"),
-                                      AIClient(), fallback_map=mapping or None, examples=data.get("examples", ""))
+        out = await lang_b.ai_rewrite(_J(), work, data.get("description", ""), data.get("target_lang", "русский"),
+                                      AIClient(section="lang"), fallback_map=mapping or None,
+                                      examples=data.get("examples", ""))
         if mode == "both" and mapping:
             out = {k: lang_b.apply_map(v, mapping) for k, v in out.items()}
-    return {"source": src, "result": out}
+    return {"source": src, "result": rules.lang_post(out, lang_b.split_protected)}
 
 
 async def _lang_job(job, data: dict):
@@ -360,13 +388,13 @@ async def _lang_job(job, data: dict):
     code = re.sub(r"[^a-z0-9\-]", "", (data.get("code") or "mylang").lower())[:32] or "mylang"
     mapping = _lang_map(data)
     mode = data.get("mode", "charmap")
-    ai = AIClient() if mode in ("ai", "both") else None
+    ai = AIClient(section="lang") if mode in ("ai", "both") else None
     per_platform = {}
     for n, pf in enumerate(platforms):
         job.update(n / len(platforms) * 0.5, f"{pf}: загружаю исходные строки ({data.get('lang_code', 'ru')})")
         entries = await ACCOUNT.get_langpack(pf, data.get("lang_code", "ru"))
         chosen = lang_b.select_entries(entries, data.get("key_filter", ""), int(data.get("limit") or 0))
-        flat = lang_b.flatten(chosen)
+        flat = rules.lang_pre(lang_b.flatten(chosen), lang_b.split_protected)
         if mode == "charmap":
             res = {k: lang_b.apply_map(v, mapping) for k, v in flat.items()}
         else:
@@ -375,10 +403,11 @@ async def _lang_job(job, data: dict):
             if mode == "both" and mapping:
                 res = {k: lang_b.apply_map(v, mapping) for k, v in res.items()}
         # строки вне выборки — замена символов (если задана) или исходник
-        full = lang_b.flatten(entries)
+        full = rules.lang_pre(lang_b.flatten(entries), lang_b.split_protected)
         if data.get("rest_charmap", True) and mapping:
             full = {k: lang_b.apply_map(v, mapping) for k, v in full.items()}
         full.update(res)
+        full = rules.lang_post(full, lang_b.split_protected)
         per_platform[pf] = lang_b.unflatten(full, entries) if data.get("full_pack", True) else lang_b.unflatten(res, chosen)
         job.update((n + 1) / len(platforms) * 0.5, f"{pf}: готово {len(res)} строк")
     out_dir = new_out_dir(f"lang_{code}")
@@ -416,7 +445,7 @@ async def emoji_layout(data: dict = Body(...)):
         safe_upload(f)
     cols, rows = int(data.get("cols", 8)), int(data.get("rows", 25))
     if data.get("mode") == "ai":
-        items = await composer.ai_layout(files, data.get("description", ""), AIClient(), cols, rows)
+        items = await composer.ai_layout(files, data.get("description", ""), AIClient(section="emoji"), cols, rows)
     else:
         items = composer.auto_layout(files, cols, rows, data.get("style", "balanced"))
     for it in items:
@@ -533,7 +562,7 @@ async def pixel_generate(data: dict = Body(...)):
     res = await pixelgen.generate(data.get("prompt", ""), data.get("mode", "procedural"), int(data.get("size", 24)),
                                   data.get("animation", "sparkle"), int(data.get("frames", 12)), int(data.get("fps", 10)),
                                   int(data.get("colors", 12)), bool(data.get("outline", True)), data.get("sprite", "heart"),
-                                  data.get("seed"), AIClient(), src)
+                                  data.get("seed"), AIClient(section="pixel"), src)
     d = OUTPUT_DIR / "pixel"
     stem = f"px_{uuid.uuid4().hex[:8]}"
     files = pixelgen.export(res["frames"], res["fps"], d, stem)
@@ -587,7 +616,7 @@ async def _sticker_job(job, data: dict):
     out_dir = new_out_dir("stickers")
     paths, items = [], []
     emojis = data.get("emojis") or {}
-    ai = AIClient()
+    ai = AIClient(section="stickers")
     for i, f in enumerate(files):
         job.update(i / len(files) * 0.7, f"Обработка {i + 1}/{len(files)}")
         img = Image.open(safe_upload(f))
@@ -605,7 +634,8 @@ async def _sticker_job(job, data: dict):
                 emo = r.get("emoji")
             except Exception:  # noqa: BLE001
                 emo = None
-        items.append({"path": str(p), "emoji": emo or data.get("default_emoji") or "✨"})
+        items.append({"path": str(p), "emoji": emo or data.get("default_emoji")
+                      or rules.section("stickers").get("default_emoji") or "✨"})
     sheet = st.contact_sheet(paths)
     sheet.save(out_dir / "preview.png")
     zpath = shutil.make_archive(str(out_dir), "zip", out_dir)
@@ -638,3 +668,39 @@ async def sticker_build(data: dict = Body(...)):
 async def text_ai(data: dict = Body(...)):
     res = await ai_text.run(data.get("action", "post"), data)
     return {"result": res}
+
+
+# ======================= правила =======================
+@app.get("/api/rules")
+async def rules_get():
+    d = rules.load()
+    return {**d, "sections": rules.SECTION_LABELS, "styles": th_gen.STYLES, "roles": th_gen.ROLE_KEYS}
+
+
+@app.post("/api/rules")
+async def rules_set(data: dict = Body(...)):
+    return rules.save(rules=data.get("rules"), active=data.get("active"))
+
+
+@app.post("/api/rules/preset")
+async def rules_preset(data: dict = Body(...)):
+    """action: save (текущие правила под именем) | load | delete"""
+    d = rules.load()
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "Укажи название набора")
+    presets = d["presets"]
+    if data.get("action") == "delete":
+        presets.pop(name, None)
+        return rules.save(presets=presets, active="" if d["active"] == name else d["active"])
+    if data.get("action") == "load":
+        if name not in presets:
+            raise HTTPException(404, "Нет такого набора")
+        return rules.save(rules=presets[name], active=name)
+    presets[name] = d["rules"]
+    return rules.save(presets=presets, active=name)
+
+
+@app.post("/api/rules/apply_text")
+async def rules_apply_text(data: dict = Body(...)):
+    return {"text": rules.apply_text(data.get("text", ""), bool(data.get("full_post", True)))}

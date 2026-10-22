@@ -28,6 +28,7 @@ from urllib.parse import quote
 import httpx
 
 from ..config import load_settings
+from ..rules import with_rules
 
 PROVIDER_INFO = {
     "pollinations": {"label": "Pollinations — бесплатно, без ключа", "vision": True},
@@ -88,8 +89,10 @@ def _b64(img: bytes) -> str:
 
 
 class AIClient:
-    def __init__(self, settings: dict | None = None):
+    def __init__(self, settings: dict | None = None, section: str | None = None):
+        """section — раздел программы: к системному промпту добавляются правила пользователя этого раздела."""
         self.settings = settings or load_settings()
+        self.section = section
         ai = self.settings["ai"]
         self.provider = ai.get("provider", "pollinations")
         self.cfg = ai["providers"].get(self.provider, {})
@@ -104,6 +107,7 @@ class AIClient:
         if not self.enabled:
             raise AIError("ИИ отключён в настройках (режим «без ИИ»)")
         images = images if (images and self.vision) else None
+        system = with_rules(system, self.section)
         if json_mode:
             prompt += "\n\nОтветь ТОЛЬКО валидным JSON без пояснений."
         fn = getattr(self, f"_chat_{self.provider}", None)

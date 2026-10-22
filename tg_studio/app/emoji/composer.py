@@ -16,11 +16,13 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import zipfile
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from .. import rules
 from ..ai.providers import AIClient
 from ..config import UPLOAD_DIR
 from ..imageutil import (apply_shape, border_stats, draw_text_block, fit, gradient, is_animated, load_frames,
@@ -127,6 +129,7 @@ def auto_layout(files: list[str], cols: int = COLS, rows: int = ROWS, style: str
         s = info["suggest"]
         items.append({"id": f"it{len(items)}", "src": f, "kind": s["kind"], "w": s["w"], "h": s["h"],
                       "remove_bg": s["remove_bg"], "fit": s["fit"], "emoji": "✨", "analysis": info})
+    items = [rules.apply_emoji_item(it) for it in items]
     if style == "big_first":
         items.sort(key=lambda it: -(it["w"] * it["h"]))
     elif style == "rows":  # крупные блоки, между ними ряды одиночных
@@ -193,7 +196,7 @@ async def ai_layout(files: list[str], description: str, ai: AIClient, cols: int 
             s = by_file[f]["suggest"]
             items.append({"id": f"it{len(items)}", "src": f, "kind": s["kind"], "w": s["w"], "h": s["h"],
                           "remove_bg": s["remove_bg"], "fit": s["fit"], "emoji": "✨", "analysis": by_file[f]})
-    return pack(items, cols, rows)
+    return pack([rules.apply_emoji_item(it) for it in items], cols, rows)
 
 
 # ---------------- рендер элемента ----------------
@@ -237,8 +240,10 @@ def render_item(it: dict, cell: int = CELL) -> tuple[list[Image.Image], list[int
     kind = it.get("kind", "single")
     if kind == "spacer":
         return [Image.new("RGBA", box, (0, 0, 0, 0))], [100]
+    er = rules.section("emoji")
     if kind == "text" or (not it.get("src") and not it.get("srcs")):
-        bg_cols = it.get("bg_colors") or ["#1b1b1f", "#3a2d4f"]
+        rule_cols = re.findall(r"#[0-9a-fA-F]{6}", er.get("banner_colors", ""))
+        bg_cols = it.get("bg_colors") or rule_cols or ["#1b1b1f", "#3a2d4f"]
         base = gradient(box, bg_cols, it.get("bg_angle", 0)) if it.get("bg_style", "gradient") != "none" \
             else Image.new("RGBA", box, (0, 0, 0, 0))
         base = rounded(base, int(it.get("radius", 18)))
@@ -257,7 +262,7 @@ def render_item(it: dict, cell: int = CELL) -> tuple[list[Image.Image], list[int
                              it.get("outline_color", "#ffffff"))
         t = it.get("text")
         if t and t.get("content"):
-            fr = draw_text_block(fr, t["content"], t.get("font"), int(t.get("size", 40)) * cell // 100,
+            fr = draw_text_block(fr, t["content"], t.get("font") or er.get("font") or None, int(t.get("size", 40)) * cell // 100,
                                  t.get("color", "#ffffff"), int(t.get("stroke", 0)), t.get("stroke_color", "#000000"),
                                  t.get("align", "center"), t.get("pos", "center"), t.get("bg"))
         out.append(fr)

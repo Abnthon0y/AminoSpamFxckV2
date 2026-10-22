@@ -8,6 +8,7 @@ from collections import Counter
 from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
+from .. import rules
 from ..ai.providers import AIClient
 from ..text.charmaps import FONTS
 
@@ -135,6 +136,7 @@ AI_SYSTEM = (
 async def ai_rewrite(job, flat: dict[str, str], description: str, target_lang: str, ai: AIClient,
                      batch_size: int = 40, fallback_map: dict | None = None, examples: str = "") -> dict[str, str]:
     keys = list(flat)
+    growth = rules.lang_max_growth()  # правило: насколько строка может стать длиннее (0 = без ограничения)
     result: dict[str, str] = {}
     total = len(keys)
     bad = 0
@@ -151,7 +153,8 @@ async def ai_rewrite(job, flat: dict[str, str], description: str, target_lang: s
             data = {}
         for k, orig in chunk.items():
             new = data.get(k) if isinstance(data, dict) else None
-            if isinstance(new, str) and new.strip() and placeholders(new) == placeholders(orig):
+            too_long = growth > 0 and isinstance(new, str) and len(new) > len(orig) * (1 + growth) + 2
+            if isinstance(new, str) and new.strip() and placeholders(new) == placeholders(orig) and not too_long:
                 result[k] = new
             else:
                 if new is not None:

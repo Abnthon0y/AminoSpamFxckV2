@@ -181,16 +181,20 @@ def derive_roles(c: dict, style: str = "") -> dict:
     }
 
 
-def fix_contrast(roles: dict) -> dict:
+def fix_contrast(roles: dict, boost: float = 0.0, locked: dict | None = None) -> dict:
+    """boost — усиление требований к контрасту (0.2 = на 20% строже), locked — роли, которые нельзя менять."""
     out = dict(roles)
+    locked = locked or {}
+    out.update(locked)
     for k in ROLE_KEYS:
         if k not in out or not isinstance(out[k], str) or not out[k].startswith("#"):
             out[k] = "#888888"
     for _ in range(2):
         for fg, bg, ratio in CONTRAST_RULES:
-            if (fg, bg) not in BG_ONLY_RULES:
+            ratio = min(21.0, ratio * (1 + boost))
+            if (fg, bg) not in BG_ONLY_RULES and fg not in locked:
                 out[fg] = ensure_contrast(out[fg], out[bg], ratio)
-            if contrast(out[fg], out[bg]) < ratio - 0.01 and bg not in ("bg", "surface"):
+            if contrast(out[fg], out[bg]) < ratio - 0.01 and bg not in ("bg", "surface") and bg not in locked:
                 # текст уже предельный (почти белый/чёрный) — двигаем светлоту фона
                 h, s, l = to_hsl(out[bg])
                 away = -1 if luminance(out[fg]) > luminance(out[bg]) else 1
@@ -202,16 +206,18 @@ def fix_contrast(roles: dict) -> dict:
     return out
 
 
-def contrast_report(roles: dict) -> list[dict]:
+def contrast_report(roles: dict, boost: float = 0.0) -> list[dict]:
     rep = []
     for fg, bg, ratio in CONTRAST_RULES:
+        ratio = round(min(21.0, ratio * (1 + boost)), 2)
         c = contrast(roles[fg], roles[bg])
         rep.append({"fg": fg, "bg": bg, "ratio": round(c, 2), "need": ratio, "ok": c >= ratio - 0.01})
     return rep
 
 
-def theme_variants(palette: list[dict], mode: str, count: int = 6, wall_brightness: float | None = None) -> list[dict]:
-    styles = list(STYLES)
+def theme_variants(palette: list[dict], mode: str, count: int = 6, wall_brightness: float | None = None,
+                   styles: list[str] | None = None) -> list[dict]:
+    styles = [s for s in (styles or []) if s in STYLES] or list(STYLES)
     out = []
     for i in range(count):
         st = styles[i % len(styles)]

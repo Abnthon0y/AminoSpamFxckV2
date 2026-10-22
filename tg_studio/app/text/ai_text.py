@@ -1,6 +1,7 @@
 """Нейросеть для эстетичного оформления текстов постов, ников и био."""
 from __future__ import annotations
 
+from .. import rules
 from ..ai.providers import AIClient
 
 STYLE_EXAMPLES = {
@@ -45,8 +46,22 @@ def _style_block(style: str) -> str:
     return f"Стиль: {name}\nПример такого оформления:\n{ex}\n"
 
 
-async def run(action: str, payload: dict, ai: AIClient | None = None) -> str | list:
-    ai = ai or AIClient()
+async def run(action: str, payload: dict, ai: AIClient | None = None) -> str | list | dict:
+    ai = ai or AIClient(section="text")
+    res = await _run(action, payload, ai)
+    # жёсткие правила раздела «Тексты»: замены, запрещённые символы, шапка/подпись
+    if isinstance(res, str):
+        return rules.apply_text(res, full_post=action in ("post", "decorate", "bio"))
+    if isinstance(res, list):
+        return [rules.apply_text(x, full_post=False) for x in res]
+    if isinstance(res, dict):
+        return {k: (rules.apply_text(v, False) if isinstance(v, str) else
+                    [rules.apply_text(x, False) if isinstance(x, str) else x for x in v] if isinstance(v, list) else v)
+                for k, v in res.items()}
+    return res
+
+
+async def _run(action: str, payload: dict, ai: AIClient) -> str | list | dict:
     width = int(payload.get("width") or 32)
     style = payload.get("style", "soft")
     symbols = payload.get("symbols", "")

@@ -7,11 +7,25 @@ import { initStickers } from "./stickers.js";
 import { initText } from "./text.js";
 import { initLibrary } from "./library.js";
 import { initSettings } from "./settings.js";
+import { initRules } from "./rules.js";
 
 const pages = {
   themes: initThemes, lang: initLang, emoji: initEmoji, pixel: initPixel, stickers: initStickers,
-  text: initText, library: initLibrary, settings: initSettings,
+  text: initText, library: initLibrary, settings: initSettings, rules: initRules,
 };
+const RULE_SECTIONS = { themes: "themes", lang: "lang", emoji: "emoji", pixel: "pixel", stickers: "stickers", text: "text" };
+
+// кнопка «📜 Правила» в шапке каждого раздела — открывает нужную вкладку правил
+function addRulesButton(page) {
+  const sec = RULE_SECTIONS[page];
+  const head = $(`#page-${page} .page-head`);
+  if (!sec || !head || head.querySelector(".rules-btn")) return;
+  const btn = document.createElement("button");
+  btn.className = "btn small ghost rules-btn";
+  btn.textContent = "📜 Правила раздела";
+  btn.onclick = () => { window.__rulesTab = sec; show("rules"); };
+  head.append(btn);
+}
 const inited = new Set();
 
 function show(page) {
@@ -19,7 +33,7 @@ function show(page) {
   $$(".page").forEach((p) => p.classList.toggle("active", p.id === `page-${page}`));
   if (!inited.has(page)) {
     inited.add(page);
-    pages[page]($(`#page-${page}`));
+    Promise.resolve(pages[page]($(`#page-${page}`))).then(() => addRulesButton(page));
   } else {
     $(`#page-${page}`).dispatchEvent(new CustomEvent("shown"));
   }
