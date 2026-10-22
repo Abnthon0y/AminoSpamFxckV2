@@ -264,7 +264,9 @@ def process(img: Image.Image, opts: dict, harmony: tuple | None = None, lut: np.
         b = b.point(lambda v: min(255, int(v * (1 - warmth * 0.12))))
         img = Image.merge("RGBA", (r, g, b, a))
     if opts.get("remove_bg"):
-        img = trim_transparent(remove_background(img, tolerance=int(opts.get("bg_tolerance", 38))), pad=4)
+        img = trim_transparent(remove_background(img, tolerance=int(opts.get("bg_tolerance", 38)),
+                                                 engine=opts.get("bg_engine") or None,
+                                                 model=opts.get("bg_model") or None), pad=4)
     frame = opts.get("frame", "outline" if opts.get("remove_bg") else "rounded")
     room = int(outline_room(frame, int(opts.get("outline_w", 14))))
     pad = int(opts.get("padding", 0)) + room

@@ -43,6 +43,10 @@ DEFAULTS: dict = {
         "a1111_url": "http://127.0.0.1:7860",
         "pollinations_model": "flux",
     },
+    "bg": {
+        # auto — нейросеть rembg, если установлена, иначе алгоритм | ai | algo
+        "engine": "auto", "model": "isnet-anime", "second": "isnet-general-use", "matting": False, "defringe": True,
+    },
     "telegram": {
         "api_id": "",
         "api_hash": "",

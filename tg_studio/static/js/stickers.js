@@ -4,7 +4,7 @@ const S = { files: [], emojis: {}, opts: store.get("stickers:opts", null), meta:
 const DEF = {
   remove_bg: false, fit: "smart", autocorrect: true, autocorrect_strength: 0.8, harmonize: true, harmonize_strength: 0.35,
   lut: "none", lut_strength: 1, brightness: 1, contrast: 1, saturation: 1, warmth: 0,
-  frame: "rounded", outline_w: 14, outline_color: "#ffffff", padding: 8, bg_color: "",
+  frame: "rounded", bg_engine: "", bg_tolerance: 38, outline_w: 14, outline_color: "#ffffff", padding: 8, bg_color: "",
 };
 
 export async function initStickers(root) {
@@ -37,6 +37,10 @@ export async function initStickers(root) {
       </div>
       <div class="card"><h3>✂️ Форма</h3>
         <label class="check"><input type="checkbox" data-o="remove_bg"> вырезать объект (убрать фон)</label>
+        <div class="kv" style="margin-top:8px">
+          <label class="field">Чем резать фон<select data-o="bg_engine"><option value="">как в настройках</option><option value="ai">нейросеть</option><option value="algo">алгоритм</option></select></label>
+          <label class="field">Допуск алгоритма<input type="number" min="5" max="120" data-o="bg_tolerance"></label>
+        </div>
         <div class="kv" style="margin-top:8px">
           <label class="field">Кадр<select data-o="fit"><option value="smart">умно</option><option value="cover">заполнить 1:1</option><option value="contain">целиком</option></select></label>
           <label class="field">Рамка<select data-o="frame" id="stFrame"></select></label>
@@ -73,7 +77,7 @@ export async function initStickers(root) {
     const out = inp.nextElementSibling;
     if (out?.tagName === "OUTPUT") out.textContent = inp.value;
     inp.addEventListener(inp.type === "checkbox" || inp.tagName === "SELECT" ? "change" : "input", () => {
-      S.opts[k] = inp.type === "checkbox" ? inp.checked : inp.type === "range" ? +inp.value : inp.value;
+      S.opts[k] = inp.type === "checkbox" ? inp.checked : inp.type === "range" || inp.type === "number" ? +inp.value : inp.value;
       if (out?.tagName === "OUTPUT") out.textContent = inp.value;
       store.set("stickers:opts", S.opts);
       refresh();

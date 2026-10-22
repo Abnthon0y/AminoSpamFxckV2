@@ -173,6 +173,55 @@ async def job_continue(jid: str):
     return {"ok": True}
 
 
+# ---------- удаление фона ----------
+@app.get("/api/bg/status")
+async def bg_status():
+    from .imageutil import BG_MODELS, rembg_available
+    return {"installed": rembg_available(), "models": BG_MODELS, "settings": config.load_settings().get("bg", {})}
+
+
+@app.post("/api/bg/install")
+async def bg_install():
+    import asyncio
+    import importlib
+    import subprocess
+    import sys
+
+    async def run(job):
+        job.update(0.05, "Ставлю rembg + onnxruntime (≈200 МБ, пара минут)…")
+        proc = await asyncio.to_thread(subprocess.run, [sys.executable, "-m", "pip", "install", "rembg[cpu]"],
+                                       capture_output=True, text=True)
+        job.log.append((proc.stdout + proc.stderr)[-3000:])
+        if proc.returncode:
+            raise RuntimeError("pip завершился с ошибкой — смотри лог ниже")
+        importlib.invalidate_caches()
+        from .imageutil import rembg_available
+        if not rembg_available():
+            raise RuntimeError("Пакет поставился, но не импортируется — перезапусти программу")
+        return {"installed": True}
+    return {"job": start_job("Установка нейросети для фона", run).id}
+
+
+@app.post("/api/bg/preview")
+async def bg_preview(data: dict = Body(...)):
+    """Режет фон у картинки из библиотеки двумя способами — нейросетью (по текущим настройкам) и алгоритмом."""
+    import asyncio
+    from .imageutil import remove_background
+    with Image.open(safe_upload(data["name"])) as im:
+        img = im.convert("RGBA")
+    img.thumbnail((768, 768))
+    tol = int(data.get("tolerance", 38))
+    out = {}
+    for mode in ("auto", "algo"):
+        t = time.time()
+        res = await asyncio.to_thread(remove_background, img, tol, 1.2, True, mode, data.get("model") or None)
+        p = OUTPUT_DIR / f"bgprev_{mode}_{uuid.uuid4().hex[:6]}.png"
+        res.save(p)
+        out[mode] = {"url": url_of(p), "sec": round(time.time() - t, 1),
+                     "transparent": round(float((np.asarray(res)[..., 3] < 10).mean()), 2)}
+    return out
+
+
 @app.get("/api/outputs")
 async def outputs():
     items = []
@@ -241,7 +290,8 @@ async def theme_palette(data: dict = Body(...)):
 async def theme_meta():
     boost = float(rules.section("themes").get("contrast_boost") or 0) / 100
     return {"roles": th_gen.ROLE_KEYS, "labels": th_gen.ROLE_LABELS, "styles": th_gen.STYLES,
-            "groups": th_gen.ROLE_GROUPS,
+            "groups": th_gen.ROLE_GROUPS, "fx_default": th_gen.FX_DEFAULT, "alpha_bg": th_gen.ALPHA_BG,
+            "charts": th_gen.CHART_KEYS,
             "rules": [(fg, bg, round(min(21.0, r * (1 + boost)), 2)) for fg, bg, r in th_gen.CONTRAST_RULES],
             "locked": rules.theme_locked()}
 
@@ -323,7 +373,7 @@ async def theme_ai_edit(data: dict = Body(...)):
     ai = AIClient(section="themes")
     raw = await ai.chat_json(th_gen.ai_edit_prompt(data["roles"], data.get("instruction", "")),
                              system=th_gen.EDIT_SYSTEM, max_tokens=8000)
-    roles, changed, comment = th_gen.apply_edit(data["roles"], raw, boost, locked)
+    roles, changed, comment = th_gen.apply_edit(data["roles"], raw, boost, locked, data.get("instruction", ""))
     return {"roles": roles, "report": th_gen.contrast_report(roles, boost), "changed": changed, "comment": comment}
 
 
@@ -333,11 +383,21 @@ async def theme_keys(data: dict = Body(...)):
     return {"keys": th_exp.resolved_keys(data["roles"], data.get("platform", "android"))}
 
 
+@app.post("/api/theme/charts")
+async def theme_charts(data: dict = Body(...)):
+    """Линии статистики в цвета темы — без нейросети."""
+    _, boost, locked, _ = _theme_rules()
+    roles = {**data["roles"], **th_gen.theme_charts(data["roles"], locked)}
+    return {"roles": roles, "report": th_gen.contrast_report(roles, boost)}
+
+
 @app.post("/api/theme/fix")
 async def theme_fix(data: dict = Body(...)):
     _, boost, locked, _ = _theme_rules()
     src = data["roles"]
     roles = th_gen.derive_roles(src) if src.get("bg") else dict(src)  # достраивает недостающие роли (старые темы)
+    if "_fx" in src:
+        roles["_fx"] = th_gen.sanitize_fx(src["_fx"])
     roles = th_gen.fix_contrast(roles, boost, locked) if data.get("fix", True) else roles
     for k in ("_meta", "_overrides"):
         if k in src:

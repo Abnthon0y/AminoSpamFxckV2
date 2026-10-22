@@ -444,10 +444,10 @@ picker_badgeText=on_accent
 stickers_menu=icon
 stickers_menuSelector=text/12
 key_chat_messagePanelVoiceLock=icon
-statisticChartSignature=text2
-statisticChartSignatureAlpha=text2
-statisticChartHintLine=divider
-statisticChartActiveLine=accent
+statisticChartSignature=chart_text
+statisticChartSignatureAlpha=chart_text/60
+statisticChartHintLine=chart_grid
+statisticChartActiveLine=chart_text/40
 topics_unreadCounter=accent
 topics_unreadCounterMuted=badge_muted
 windowBackgroundWhiteRedText=error
@@ -461,6 +461,28 @@ dialogTextRed2=error
 dialogRedIcon=error
 text_RedRegular=error
 text_RedBold=error
+statisticChartLine_blue=chart_blue
+statisticChartLine_green=chart_green
+statisticChartLine_red=chart_red
+statisticChartLine_golden=chart_golden
+statisticChartLine_lightblue=chart_lightblue
+statisticChartLine_lightgreen=chart_lightgreen
+statisticChartLine_orange=chart_orange
+statisticChartLine_indigo=chart_indigo
+statisticChartLine_purple=chart_purple
+statisticChartLine_cyan=chart_cyan
+statisticChartLineEmpty=chart_grid
+statisticChartInactivePickerChart=chart_grid
+statisticChartActivePickerChart=accent/40
+statisticChartRipple=chart_text/15
+statisticChartBackZoomColor=accent
+statisticChartChevronColor=chart_text
+stories_circle1=story1
+stories_circle2=story2
+stories_circle_dialog1=story1
+stories_circle_dialog2=story2
+stories_circle_closeFriends1=story_close1
+stories_circle_closeFriends2=story_close2
 """
 
 TDESKTOP_MAP = """
@@ -830,7 +852,16 @@ callBarFg=on_accent
 importantTooltipBg=surface
 importantTooltipFg=text
 importantTooltipFgLink=accent
-
+statisticsChartLineBlue=chart_blue
+statisticsChartLineGreen=chart_green
+statisticsChartLineRed=chart_red
+statisticsChartLineGolden=chart_golden
+statisticsChartLineLightblue=chart_lightblue
+statisticsChartLineLightgreen=chart_lightgreen
+statisticsChartLineOrange=chart_orange
+statisticsChartLineIndigo=chart_indigo
+statisticsChartLinePurple=chart_purple
+statisticsChartLineCyan=chart_cyan
 """
 
 
@@ -855,6 +886,42 @@ def _resolve(expr: str, roles: dict) -> tuple[str, int]:
     return roles[expr], alpha
 
 
+# ключ → какой эффект на него действует: ("alpha", параметр) или ("shadow", "in"/"out")
+FX_KEYS = {
+    "android": {
+        **{k: ("alpha", "in_alpha") for k in ("chat_inBubble", "chat_inBubbleSelected")},
+        **{k: ("alpha", "out_alpha") for k in ("chat_outBubble", "chat_outBubbleGradient", "chat_outBubbleGradient2",
+                                               "chat_outBubbleGradient3", "chat_outBubbleSelected")},
+        "chat_inBubbleShadow": ("shadow", "in"), "chat_outBubbleShadow": ("shadow", "out"),
+        **{k: ("alpha", "service_alpha") for k in ("chat_serviceBackground", "chat_serviceBackgroundSelected")},
+        "chat_messagePanelBackground": ("alpha", "input_alpha"),
+        **{k: ("alpha", "selection_alpha") for k in ("chat_textSelectBackground", "chat_selectedBackground")},
+    },
+    "tdesktop": {
+        **{k: ("alpha", "in_alpha") for k in ("msgInBg", "msgInBgSelected")},
+        **{k: ("alpha", "out_alpha") for k in ("msgOutBg", "msgOutBgSelected")},
+        **{k: ("shadow", "in") for k in ("msgInShadow", "msgInShadowSelected")},
+        **{k: ("shadow", "out") for k in ("msgOutShadow", "msgOutShadowSelected")},
+        **{k: ("alpha", "service_alpha") for k in ("msgServiceBg", "msgServiceBgSelected")},
+        "historyComposeAreaBg": ("alpha", "input_alpha"),
+        "msgSelectOverlay": ("alpha", "selection_alpha"),
+    },
+}
+
+
+def _fx_apply(key: str, hx: str, a: int, roles: dict, platform: str) -> tuple[str, int]:
+    """Прозрачность пузырей/плашек/панели и тени сообщений из roles["_fx"]."""
+    from .generator import sanitize_fx
+    rule = FX_KEYS.get(platform, {}).get(key)
+    if not rule or "_fx" not in roles:
+        return hx, a
+    fx = sanitize_fx(roles["_fx"])
+    kind, param = rule
+    if kind == "shadow":
+        return fx[f"shadow_{param}"], round(fx[f"shadow_{param}_alpha"] * 2.55)
+    return hx, round(fx[param] * 2.55)
+
+
 def _overrides(roles: dict, platform: str) -> dict[str, tuple[str, int]]:
     """Ручные значения отдельных ключей: roles["_overrides"][platform][key] = "#rrggbb" или "#rrggbbaa"."""
     out = {}
@@ -875,7 +942,7 @@ def resolved_keys(roles: dict, platform: str) -> list[dict]:
         if key in seen:
             continue
         seen.add(key)
-        hx, a = ov.get(key) or _resolve(expr, roles)
+        hx, a = ov.get(key) or _fx_apply(key, *_resolve(expr, roles), roles, platform)
         out.append({"key": key, "expr": expr, "color": hx, "alpha": round(a / 2.55), "override": key in ov})
     for key, (hx, a) in ov.items():  # свои ключи, которых нет в таблице
         if key not in seen:
@@ -891,7 +958,7 @@ def to_attheme(roles: dict, wallpaper: bytes | None = None) -> bytes:
         if key in done:
             continue
         done.add(key)
-        hx, a = ov.get(key) or _resolve(expr, roles)
+        hx, a = ov.get(key) or _fx_apply(key, *_resolve(expr, roles), roles, "android")
         lines.append(f"{key}={argb_int(hx, a)}")
     for key, (hx, a) in ov.items():
         if key not in done:
@@ -912,7 +979,7 @@ def to_tdesktop_palette(roles: dict) -> str:
         if key in done:
             continue
         done.add(key)
-        hx, a = ov.get(key) or _resolve(expr, roles)
+        hx, a = ov.get(key) or _fx_apply(key, *_resolve(expr, roles), roles, "tdesktop")
         suffix = "" if a == 255 else f"{a:02x}"
         lines.append(f"{key}: {hx}{suffix};")
     return "\n".join(lines) + "\n"
@@ -937,16 +1004,21 @@ def to_tgios(roles: dict, name: str = "TG Studio") -> str:
     r = {k: _h(v) for k, v in roles.items() if isinstance(v, str)}
     dark = luminance(roles["bg"]) < 0.3
     status = "white" if dark else "black"
-    bubble = lambda bg, stroke: (f"        withWp:\n          bg: {bg}\n          highlightedBg: {stroke}\n"
-                                 f"          stroke: {bg}\n          shadow: {bg}\n"
-                                 f"        withoutWp:\n          bg: {bg}\n          highlightedBg: {stroke}\n"
-                                 f"          stroke: {bg}\n          shadow: {bg}\n")
+    from .generator import sanitize_fx
+    fx = sanitize_fx(roles.get("_fx"))
+
+    def bubble(bg, stroke, side):
+        sh = _h(fx[f"shadow_{side}"]) if fx[f"shadow_{side}_alpha"] > 0 else bg  # тень (iOS — без прозрачности)
+        return (f"        withWp:\n          bg: {bg}\n          highlightedBg: {stroke}\n"
+                f"          stroke: {bg}\n          shadow: {sh}\n"
+                f"        withoutWp:\n          bg: {bg}\n          highlightedBg: {stroke}\n"
+                f"          stroke: {bg}\n          shadow: {sh}\n")
 
     def msg(side):
         p = "in" if side == "incoming" else "out"
         b = r[f"{p}_bubble"]
         hl = _h(mix(roles[f"{p}_bubble"], roles["accent"], 0.15))
-        return (f"    {side}:\n      bubble:\n{bubble(b, hl)}"
+        return (f"    {side}:\n      bubble:\n{bubble(b, hl, p)}"
                 f"      primaryText: {r[f'{p}_text']}\n      secondaryText: {r[f'{p}_secondary']}\n"
                 f"      linkText: {r[f'{p}_link']}\n      linkHighlight: {r[f'{p}_link']}\n"
                 f"      scam: {r[f'{p}_accent']}\n      textHighlight: {r['selection']}\n"
@@ -1249,6 +1321,7 @@ def cloud_theme_settings(roles: dict) -> dict:
         "accent_color": roles["accent"],
         "outbox_accent_color": roles["out_accent"],
         "message_colors": msg_colors,
+        "animated": bool((roles.get("_fx") or {}).get("animated_gradient")),
     }
 
 

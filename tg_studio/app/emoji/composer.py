@@ -203,9 +203,11 @@ async def ai_layout(files: list[str], description: str, ai: AIClient, cols: int 
 
 
 # ---------------- рендер элемента ----------------
-def _prep_frame(img: Image.Image, it: dict, box: tuple[int, int]) -> Image.Image:
+def _prep_frame(img: Image.Image, it: dict, box: tuple[int, int], fast: bool = False) -> Image.Image:
     if it.get("remove_bg"):
-        img = trim_transparent(remove_background(img, tolerance=int(it.get("bg_tolerance", 38))), pad=2)
+        img = trim_transparent(remove_background(img, tolerance=int(it.get("bg_tolerance", 38)),
+                                                 engine=it.get("bg_engine") or None, model=it.get("bg_model") or None,
+                                                 fast=fast), pad=2)
     if it.get("bw"):
         img = to_bw(img)
     mode = it.get("fit", "cover")
@@ -255,7 +257,7 @@ def render_item(it: dict, cell: int = CELL) -> tuple[list[Image.Image], list[int
         frames, durs = [_collage(it["srcs"], box, it)], [100]
     else:
         src_frames, durs = load_frames(UPLOAD_DIR / it["src"])
-        frames = [_prep_frame(f, it, box) for f in src_frames]
+        frames = [_prep_frame(f, it, box, fast=len(src_frames) > 1) for f in src_frames]
     out = []
     for fr in frames:
         if it.get("radius") and kind not in ("text",):

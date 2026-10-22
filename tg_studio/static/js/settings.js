@@ -1,4 +1,4 @@
-import { $, $$, api, busy, esc, h, toast } from "./api.js";
+import { $, $$, api, busy, esc, h, pickImages, runJob, toast } from "./api.js";
 
 const FIELDS = {
   pollinations: [["model", "Модель", "openai"], ["api_key", "Токен (необязательно)", ""]],
@@ -104,6 +104,22 @@ export async function initSettings(root) {
         <label class="check" style="margin-top:10px"><input type="checkbox" id="stHeadless"> translations.telegram.org — фоновый браузер (без окна)</label>
         <div class="row end"><button class="btn primary" id="stSaveTg">Сохранить</button></div>
       </div>
+      <div class="card"><h3>✂️ Удаление фона <span class="hint" id="bgState"></span></h3>
+        <div class="help">Нейросеть (rembg) режет фон намного точнее алгоритма: не съедает светлые волосы, убирает рамки и круги за персонажем.
+          Две модели сразу — маски объединяются, одна ловит то, что пропустила другая. Модели скачиваются один раз при первом запуске (~170 МБ каждая).</div>
+        <div class="row" id="bgInstallRow" hidden><button class="btn primary" id="bgInstall" data-busy="Ставлю…">⬇ Установить нейросеть (rembg)</button></div>
+        <div class="kv" style="margin-top:12px">
+          <label class="field">Способ<select id="bgEngine">
+            <option value="auto">Авто — нейросеть, если есть, иначе алгоритм</option>
+            <option value="ai">Только нейросеть</option>
+            <option value="algo">Только алгоритм (быстро, для однотонного фона)</option></select></label>
+          <label class="field">Основная модель<select id="bgModel"></select></label>
+          <label class="field">Вторая модель (объединение масок)<select id="bgSecond"><option value="">— нет (быстрее, меньше памяти)</option></select></label>
+        </div>
+        <label class="check" style="margin-top:10px"><input type="checkbox" id="bgDefringe"> Убирать ореол фона на краях</label>
+        <div class="row end"><button class="btn ghost" id="bgTry" data-busy="Режу…">👁 Проверить на картинке</button><button class="btn primary" id="bgSave">Сохранить</button></div>
+        <div class="bg-cmp" id="bgCmp"></div>
+      </div>
     </div>
   </div>`;
 
@@ -127,6 +143,7 @@ export async function initSettings(root) {
   $("#stUid").value = tg.user_id || "";
   $("#stHeadless").checked = !!S.translations?.headless;
 
+  initBg();
   $("#stSaveAI").onclick = (e) => busy(e.currentTarget, saveAI);
   $("#stProxy").value = S.ai.proxy || "";
   $("#stTest").onclick = async (e) => {
@@ -273,4 +290,40 @@ async function tgState() {
     $("#stTgState").textContent = st.authorized ? `✓ ${st.name}${st.username ? " @" + st.username : ""}` : (st.error || "не вошли");
   } catch (e) { $("#stTgState").textContent = e.message; }
   window.dispatchEvent(new Event("tgs:status"));
+}
+
+// ---------- удаление фона ----------
+async function initBg() {
+  const st = await api("/api/bg/status");
+  const opts = Object.entries(st.models).map(([k, v]) => `<option value="${k}">${esc(k)} — ${esc(v)}</option>`).join("");
+  $("#bgModel").innerHTML = opts;
+  $("#bgSecond").insertAdjacentHTML("beforeend", opts);
+  const b = { engine: "auto", model: "isnet-anime", second: "isnet-general-use", defringe: true, ...st.settings };
+  $("#bgEngine").value = b.engine;
+  $("#bgModel").value = b.model;
+  $("#bgSecond").value = b.second || "";
+  $("#bgDefringe").checked = b.defringe !== false;
+  const state = (ok) => {
+    $("#bgState").textContent = ok ? "✅ нейросеть установлена" : "⚠️ нейросеть не установлена — работает алгоритм";
+    $("#bgInstallRow").hidden = ok;
+  };
+  state(st.installed);
+  const save = () => api("/api/settings", { bg: { engine: $("#bgEngine").value, model: $("#bgModel").value,
+    second: $("#bgSecond").value, defringe: $("#bgDefringe").checked } });
+  $("#bgSave").onclick = (e) => busy(e.currentTarget, async () => { await save(); toast("Сохранено", "ok"); });
+  $("#bgInstall").onclick = (e) => busy(e.currentTarget, async () => {
+    const { job } = await api("/api/bg/install", {});
+    const j = await runJob(job, "Установка нейросети для фона");
+    state(j.status === "done");
+  });
+  $("#bgTry").onclick = async (e) => {
+    const names = await pickImages({ multi: false });
+    if (!names?.length) return;
+    await busy(e.currentTarget, async () => {
+      await save();
+      const r = await api("/api/bg/preview", { name: names[0] });
+      const cell = (x, t) => `<figure><img src="${x.url}?t=${Date.now()}"><figcaption>${t} · ${x.sec} с · прозрачно ${Math.round(x.transparent * 100)}%</figcaption></figure>`;
+      $("#bgCmp").innerHTML = cell(r.auto, "По настройкам") + cell(r.algo, "Алгоритм");
+    });
+  };
 }

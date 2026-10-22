@@ -57,34 +57,215 @@ def border_stats(img: Image.Image) -> tuple[tuple[int, int, int], float, float]:
     return tuple(int(x) for x in med), spread, transparency
 
 
-def remove_background(img: Image.Image, tolerance: int = 38, feather: float = 1.2, use_ai: bool = True) -> Image.Image:
-    """Удаление фона. Если установлен rembg — нейросетевое, иначе заливка от краёв."""
-    img = img.convert("RGBA")
-    if use_ai:
-        try:
-            from rembg import remove  # type: ignore
-            return remove(img)
-        except Exception:  # noqa: BLE001 — rembg не установлен, работаем алгоритмом
-            pass
-    w, h = img.size
-    rgb = img.convert("RGB")
-    marker = (255, 0, 254)
-    work = rgb.copy()
-    seeds = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
-    for t in range(1, 8):
-        seeds += [(int(w * t / 8), 0), (int(w * t / 8), h - 1), (0, int(h * t / 8)), (w - 1, int(h * t / 8))]
-    for s in seeds:
-        if work.getpixel(s) != marker:
-            ImageDraw.floodfill(work, s, marker, thresh=tolerance)
-    m = np.asarray(work)
-    bg = np.all(m == np.array(marker), axis=-1)
-    alpha = np.where(bg, 0, 255).astype(np.uint8)
-    mask = Image.fromarray(alpha, "L")
-    if feather:
-        mask = mask.filter(ImageFilter.GaussianBlur(feather))
-    out = img.copy()
-    out.putalpha(ImageChops.multiply(mask, img.getchannel("A")))
+BG_MODELS = {
+    "isnet-anime": "Аниме, арты, чиби (рекомендуется для паков)",
+    "birefnet-general-lite": "Универсальная точная (лёгкая)",
+    "birefnet-general": "Максимально точная (тяжёлая, медленная)",
+    "isnet-general-use": "Фото и предметы",
+    "u2net_human_seg": "Люди на фото",
+    "u2net": "Классическая универсальная",
+}
+_SESSIONS: dict = {}
+_BG_CACHE: dict = {}
+
+
+def rembg_available() -> bool:
+    try:
+        import rembg  # noqa: F401
+        return True
+    except Exception:  # noqa: BLE001 — нет пакета или onnxruntime
+        return False
+
+
+def _bg_settings() -> dict:
+    from .config import load_settings
+    return {"engine": "auto", "model": "isnet-anime", "second": "isnet-general-use", "matting": False,
+            "defringe": True, **(load_settings().get("bg") or {})}
+
+
+def _session(model: str):
+    from rembg import new_session
+    if model not in _SESSIONS:
+        while len(_SESSIONS) >= 2:  # в памяти не больше двух моделей — каждая занимает сотни МБ
+            _SESSIONS.pop(next(iter(_SESSIONS)))
+        _SESSIONS[model] = new_session(model)
+    return _SESSIONS[model]
+
+
+def _rembg_mask(img: Image.Image, model: str) -> np.ndarray:
+    from rembg import remove
+    m = remove(img.convert("RGB"), session=_session(model), only_mask=True, post_process_mask=True)
+    return np.asarray(m.convert("L"), dtype=np.float32) / 255
+
+
+def _box_blur(x: np.ndarray, r: int) -> np.ndarray:
+    """Box blur на float-массиве через суммы по окну (Pillow не умеет BoxBlur для режима F)."""
+    k = 2 * r + 1
+    p = np.pad(x.astype(np.float32), r, mode="edge")
+    c = np.cumsum(np.pad(p, ((1, 0), (0, 0))), 0)
+    p = (c[k:] - c[:-k]) / k
+    c = np.cumsum(np.pad(p, ((0, 0), (1, 0))), 1)
+    return (c[:, k:] - c[:, :-k]) / k
+
+
+class NoObjectError(Exception):
+    """Нейросеть не нашла объект — переходим на алгоритм."""
+
+
+def _defringe(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """Убирает ореол фона на полупрозрачных краях: вычитает местный цвет фона."""
+    bgmask = (alpha < 0.05).astype(np.float32)
+    if bgmask.sum() < 10:
+        return rgb
+    blur = lambda x: _box_blur(x, 6)
+    w = blur(bgmask) + 1e-4
+    bg = np.stack([blur(rgb[..., c] * bgmask) / w for c in range(3)], -1)
+    a3 = np.clip(alpha, 0.05, 1)[..., None]
+    unmixed = np.clip((rgb - (1 - a3) * bg) / a3, 0, 255)
+    edge = ((alpha > 0.02) & (alpha < 0.98))[..., None]
+    return np.where(edge, unmixed, rgb)
+
+
+def _rembg_cut(img: Image.Image, model: str, second: str, matting: bool, defringe: bool) -> Image.Image:
+    """Нейросеть (или две): маска основной модели объединяется с маской второй — одна часто
+    теряет то, что видит другая (например, чиби в рамке или светлые волосы на светлом фоне)."""
+    mask = _rembg_mask(img, model)
+    cov = (mask > 0.5).mean()
+    if second and second != model:
+        mask = np.maximum(mask, _rembg_mask(img, second))
+    elif cov < 0.02 or cov > 0.98:  # модель «промахнулась» (удалила всё или ничего) — пробуем другую
+        alt = "isnet-general-use" if model != "isnet-general-use" else "isnet-anime"
+        mask = _rembg_mask(img, alt)
+    cov = (mask > 0.5).mean()
+    if cov < 0.02:
+        raise NoObjectError("нейросеть не нашла объект")
+    if matting:  # тонкие края (волосы, мех): уточняем полосу на границе по цвету
+        hard = Image.fromarray((mask * 255).astype(np.uint8), "L")
+        band = np.asarray(hard.filter(ImageFilter.MaxFilter(7))) != np.asarray(hard.filter(ImageFilter.MinFilter(7)))
+        mask = np.where(band, np.asarray(hard.filter(ImageFilter.GaussianBlur(1.5)), dtype=np.float32) / 255, mask)
+    rgba = img.convert("RGBA")
+    rgb = np.asarray(rgba.convert("RGB"), dtype=np.float32)
+    alpha = mask * (np.asarray(rgba.getchannel("A"), dtype=np.float32) / 255)
+    if defringe:
+        rgb = _defringe(rgb, alpha)
+    out = Image.fromarray(rgb.astype(np.uint8), "RGB").convert("RGBA")
+    out.putalpha(Image.fromarray((alpha * 255).astype(np.uint8), "L"))
     return out
+
+
+def _algo_cut(img: Image.Image, tolerance: int = 38, feather: float = 1.0, defringe: bool = True) -> Image.Image:
+    """Без нейросети: цвета фона берутся с краёв (до 3 оттенков), фоном считается только то,
+    что похоже на них И связано с краем; мелкий мусор убирается, края мягкие и без ореола."""
+    rgba = img.convert("RGBA")
+    W, H = rgba.size
+    rgb = np.asarray(rgba.convert("RGB"), dtype=np.float32)
+    lab = _lab(rgb.reshape(-1, 3)).reshape(H, W, 3)
+    # 1) цвета фона: кластеры по краю картинки
+    border = np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]])
+    centers = border[np.linspace(0, len(border) - 1, 3).astype(int)].copy()
+    for _ in range(8):
+        d = ((border[:, None] - centers[None]) ** 2).sum(-1)
+        lbl = d.argmin(1)
+        centers = np.array([border[lbl == i].mean(0) if np.any(lbl == i) else centers[i] for i in range(3)])
+    share = np.bincount(lbl, minlength=3) / len(border)
+    bgc = centers[share > 0.12]
+    alpha_in = np.asarray(rgba.getchannel("A"))
+    if not len(bgc):
+        return rgba
+    # 2) насколько пиксель похож на фон
+    dist = np.sqrt(((lab[:, :, None, :] - bgc[None, None]) ** 2).sum(-1)).min(-1)
+    tol = max(4.0, tolerance * 0.45)
+    cand = (dist < tol) | (alpha_in < 20)
+    # 3) фон только связанный с краем (заливка в C через PIL — быстро)
+    m = Image.fromarray(np.where(cand, 255, 0).astype(np.uint8), "L").copy()  # copy: иначе буфер только для чтения
+    for x, y in [(x, 0) for x in range(0, W, 3)] + [(x, H - 1) for x in range(0, W, 3)] + \
+                [(0, y) for y in range(0, H, 3)] + [(W - 1, y) for y in range(0, H, 3)]:
+        if m.getpixel((x, y)) == 255:
+            ImageDraw.floodfill(m, (x, y), 128)
+    bg = np.asarray(m) == 128
+    fg = Image.fromarray(np.where(bg, 0, 255).astype(np.uint8), "L")
+    # 4) чистка: убрать крошки фона и мелкий мусор
+    fg = fg.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))
+    fg = fg.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))
+    hard = np.asarray(fg) > 127
+    # 5) мягкий край: полупрозрачность по близости к цвету фона в полосе 2 px у границы
+    edge = np.asarray(fg.filter(ImageFilter.MaxFilter(5))) != np.asarray(fg.filter(ImageFilter.MinFilter(5)))
+    soft = np.clip((dist - tol * 0.55) / (tol * 0.9), 0, 1)
+    alpha = np.where(edge, np.where(hard, np.maximum(soft, 0.35), soft * 0.6), hard.astype(np.float32))
+    a_img = Image.fromarray((alpha * 255).astype(np.uint8), "L")
+    if feather:
+        a_img = a_img.filter(ImageFilter.GaussianBlur(feather * 0.6))
+    alpha = np.asarray(a_img, dtype=np.float32) / 255 * (alpha_in / 255)
+    out_rgb = rgb
+    if defringe:  # 6) убрать ореол: «вычесть» цвет фона из полупрозрачных краёв
+        bg_rgb = _lab_to_rgb_approx(bgc, rgb, lab, dist)
+        a3 = np.clip(alpha, 0.05, 1)[..., None]
+        unmixed = (rgb - (1 - a3) * bg_rgb) / a3
+        out_rgb = np.where((alpha > 0.02)[..., None] & (alpha < 0.98)[..., None], np.clip(unmixed, 0, 255), rgb)
+    res = Image.fromarray(out_rgb.astype(np.uint8), "RGB").convert("RGBA")
+    res.putalpha(Image.fromarray((alpha * 255).astype(np.uint8), "L"))
+    return res
+
+
+def _lab(rgb: np.ndarray) -> np.ndarray:
+    c = rgb / 255.0
+    c = np.where(c > 0.04045, ((c + 0.055) / 1.055) ** 2.4, c / 12.92)
+    m = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]], dtype=np.float32)
+    xyz = c @ m.T / np.array([0.95047, 1.0, 1.08883], dtype=np.float32)
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16 / 116)
+    return np.stack([116 * f[:, 1] - 16, 500 * (f[:, 0] - f[:, 1]), 200 * (f[:, 1] - f[:, 2])], axis=1)
+
+
+def _lab_to_rgb_approx(bgc, rgb, lab, dist) -> np.ndarray:
+    """RGB ближайшего цвета фона для каждого пикселя (средний RGB пикселей этого кластера на краю)."""
+    H, W = dist.shape
+    border_rgb = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]])
+    border_lab = np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]])
+    lbl = ((border_lab[:, None] - bgc[None]) ** 2).sum(-1).argmin(1)
+    cols = np.array([border_rgb[lbl == i].mean(0) if np.any(lbl == i) else rgb.reshape(-1, 3).mean(0)
+                     for i in range(len(bgc))], dtype=np.float32)
+    idx = ((lab[:, :, None, :] - bgc[None, None]) ** 2).sum(-1).argmin(-1)
+    return cols[idx]
+
+
+def remove_background(img: Image.Image, tolerance: int = 38, feather: float = 1.2, use_ai: bool = True,
+                      engine: str | None = None, model: str | None = None, matting: bool | None = None,
+                      fast: bool = False) -> Image.Image:
+    """Удаление фона.
+    engine: auto — нейросеть rembg, если установлена, иначе алгоритм; ai — только нейросеть; algo — только алгоритм.
+    fast=True (кадры GIF) — алгоритм, чтобы не ждать нейросеть на каждом кадре."""
+    import hashlib
+    cfg = _bg_settings()
+    engine = engine or cfg["engine"]
+    model = model if model in BG_MODELS else cfg["model"] if cfg["model"] in BG_MODELS else "isnet-anime"
+    matting = cfg["matting"] if matting is None else matting
+    img = img.convert("RGBA")
+    key = (hashlib.md5(img.tobytes()).hexdigest(), img.size, tolerance, feather, use_ai, engine, model,
+           cfg.get("second"), matting, fast)
+    if key in _BG_CACHE:
+        return _BG_CACHE[key].copy()
+    use_net = use_ai and not fast and engine in ("auto", "ai")
+    second = cfg.get("second") if cfg.get("second") in BG_MODELS else ""
+    res = None
+    if use_net and rembg_available():
+        try:
+            res = _rembg_cut(img, model, second, matting, cfg.get("defringe", True))
+        except NoObjectError:
+            res = None  # нейросети не нашли объект — режем алгоритмом
+        except Exception as e:  # сбой модели (память, скачивание) — в auto не роняем задачу
+            if engine == "ai":
+                raise
+            import logging
+            logging.getLogger("tg_studio").warning("rembg: %s — фон режется алгоритмом", e)
+            res = None
+    elif use_net and engine == "ai":
+        raise RuntimeError("Нейросеть для удаления фона не установлена — «ИИ и аккаунт» → «Удаление фона» → «Установить»")
+    if res is None:
+        res = _algo_cut(img, tolerance, feather, cfg.get("defringe", True))
+    if len(_BG_CACHE) > 48:
+        _BG_CACHE.pop(next(iter(_BG_CACHE)))
+    _BG_CACHE[key] = res
+    return res.copy()
 
 
 def trim_transparent(img: Image.Image, pad: int = 0) -> Image.Image:

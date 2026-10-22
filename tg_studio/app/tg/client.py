@@ -233,7 +233,7 @@ class TelegramAccount:
             accent_color=rgb_int(settings["accent_color"]),
             outbox_accent_color=rgb_int(settings["outbox_accent_color"]) if settings.get("outbox_accent_color") else None,
             message_colors=[rgb_int(c) for c in settings.get("message_colors", [])[:4]] or None,
-            message_colors_animated=False,
+            message_colors_animated=bool(settings.get("animated")) or None,
             wallpaper=wp, wallpaper_settings=wp_settings,
         )
         slug = _slug(slug or title)

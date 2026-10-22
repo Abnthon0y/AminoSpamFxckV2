@@ -327,6 +327,10 @@ function drawInspector() {
         <label class="check small"><input type="checkbox" data-k="bw" ${it.bw ? "checked" : ""}> ч/б</label>
         <label class="check small"><input type="checkbox" data-k="locked" ${it.locked ? "checked" : ""}> 🔒</label>
       </div>
+      <div class="kv" ${it.remove_bg ? "" : "hidden"}>
+        <label class="field">Чем резать фон<select data-k="bg_engine"><option value="">как в настройках</option><option value="ai" ${it.bg_engine === "ai" ? "selected" : ""}>нейросеть</option><option value="algo" ${it.bg_engine === "algo" ? "selected" : ""}>алгоритм</option></select></label>
+        <label class="field">Допуск алгоритма<input type="number" min="5" max="120" data-k="bg_tolerance" value="${it.bg_tolerance || 38}"></label>
+      </div>
       <div class="kv">
         <label class="field">Форма<select data-k="mask">${["none", "heart", "circle", "star", "rounded", "arch", "flower", "cloud", "diamond"].map((m) => `<option ${it.mask === m || (!it.mask && m === "none") ? "selected" : ""}>${m}</option>`).join("")}</select></label>
         <label class="field">Режим формы<select data-k="mask_mode"><option value="inside" ${it.mask_mode !== "erase" ? "selected" : ""}>картинка внутри</option><option value="erase" ${it.mask_mode === "erase" ? "selected" : ""}>рамка (стирает центр)</option></select></label>
@@ -365,6 +369,7 @@ function drawInspector() {
     if (k === "h") v = Math.max(1, Math.min(S.rows - it.y, v));
     it[k] = v;
     if (k === "kind" && v === "heart") Object.assign(it, { mask: "heart", bw: true });
+    if (k === "remove_bg") $("[data-k=bg_engine]", box).closest(".kv").hidden = !v;
     upd();
   }));
   $$("[data-t]", box).forEach((inp) => inp.addEventListener(inp.tagName === "SELECT" ? "change" : "input", () => {
