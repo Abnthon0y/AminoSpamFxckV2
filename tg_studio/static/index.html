@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TG Studio ✦ темы, языки, эмодзи</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">✦</div>
+      <div>
+        <div class="brand-name">TG Studio</div>
+        <div class="brand-sub">˖ ࣪ ⊹ creative kit ⊹ ࣪ ˖</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <button data-page="themes" class="active"><span>🎨</span>Темы</button>
+      <button data-page="lang"><span>🔤</span>Языки</button>
+      <button data-page="emoji"><span>✨</span>Эмодзи-паки</button>
+      <button data-page="pixel"><span>👾</span>Пиксель-GIF</button>
+      <button data-page="stickers"><span>🖼️</span>Стикеры</button>
+      <button data-page="text"><span>✍️</span>Тексты постов</button>
+      <button data-page="library"><span>🗂️</span>Библиотека</button>
+      <button data-page="settings"><span>⚙️</span>ИИ и аккаунт</button>
+    </nav>
+    <div class="side-status" id="sideStatus">
+      <div><span class="dot" id="aiDot"></span><span id="aiLabel">ИИ…</span></div>
+      <div><span class="dot" id="tgDot"></span><span id="tgLabel">Telegram…</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="page active" id="page-themes"></section>
+    <section class="page" id="page-lang"></section>
+    <section class="page" id="page-emoji"></section>
+    <section class="page" id="page-pixel"></section>
+    <section class="page" id="page-stickers"></section>
+    <section class="page" id="page-text"></section>
+    <section class="page" id="page-library"></section>
+    <section class="page" id="page-settings"></section>
+  </main>
+</div>
+
+<div class="modal" id="jobModal" hidden>
+  <div class="modal-card">
+    <div class="modal-head"><h3 id="jobTitle">Задача</h3><button class="icon-btn" id="jobClose" title="Свернуть">✕</button></div>
+    <div class="progress"><div class="progress-bar" id="jobBar"></div></div>
+    <div class="job-msg" id="jobMsg"></div>
+    <div class="job-wait" id="jobWait" hidden>
+      <div id="jobWaitText"></div>
+      <button class="btn primary" id="jobContinue">Продолжить ▸</button>
+    </div>
+    <details><summary>Журнал</summary><pre class="job-log" id="jobLog"></pre></details>
+    <div class="job-result" id="jobResult"></div>
+  </div>
+</div>
+
+<div class="modal" id="pickModal" hidden>
+  <div class="modal-card wide">
+    <div class="modal-head"><h3>Выбери картинки</h3><button class="icon-btn" data-close>✕</button></div>
+    <div class="pick-grid" id="pickGrid"></div>
+    <div class="row end"><label class="btn ghost">⬆ Загрузить<input type="file" id="pickUpload" multiple accept="image/*" hidden></label>
+      <button class="btn primary" id="pickOk">Готово</button></div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+data/
+output/
+.venv/
+__pycache__/
+*.pyc
+luts/*
+!luts/.gitkeep
+fonts/*
+!fonts/.gitkeep
