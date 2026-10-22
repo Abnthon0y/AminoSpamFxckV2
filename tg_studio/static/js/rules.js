@@ -195,6 +195,7 @@ const HARD = {
     range(box, r, "banner_max_w", "Баннер — макс. ширина", 2, 8, 1, (v) => `${v || 4} ячеек`);
     range(box, r, "tall_max_h", "Разделитель — макс. высота", 2, 8, 1, (v) => `${v || 4} ячеек`);
     check(box, r, "hearts_bw", "Сердечки всегда в ч/б");
+    check(box, r, "hearts_separate", "Сердечки — в отдельный пак (выкл. = оставлять в основном)");
     field(box, r, "banner_colors", "Цвета текстовых баннеров по умолчанию", { ph: "#ffc0db #c9b6ff" });
     const fl = h(`<label class="field"><span>Шрифт надписей по умолчанию</span><select><option value="">системный</option></select></label>`);
     const sel = fl.querySelector("select");

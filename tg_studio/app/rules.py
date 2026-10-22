@@ -24,7 +24,7 @@ DEFAULT_RULES: dict = {
     "themes": {"text": "", "mode": "", "contrast_boost": 0, "locked": "", "styles": []},
     "lang": {"text": "", "replace": "", "keys": "", "prefix": "", "suffix": "", "max_growth": 0},
     "emoji": {"text": "", "default_emoji": "", "remove_bg": "auto", "banner_max_w": 4, "tall_max_h": 4,
-              "hearts_bw": True, "font": "", "banner_colors": ""},
+              "hearts_bw": True, "hearts_separate": True, "font": "", "banner_colors": ""},
     "pixel": {"text": "", "palette": "", "outline_color": ""},
     "stickers": {"text": "", "default_emoji": ""},
     "text": {"text": "", "replace": "", "banned": "", "header": "", "signature": "", "width": 0},

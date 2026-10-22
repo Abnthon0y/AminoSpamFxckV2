@@ -185,7 +185,10 @@ async def ai_layout(files: list[str], description: str, ai: AIClient, cols: int 
               "remove_bg": bool(d.get("remove_bg")), "fit": d.get("fit") if d.get("fit") in ("cover", "contain") else "cover",
               "emoji": (d.get("emoji") or "✨")[:8], "analysis": by_file[f]}
         if kind == "heart":
-            it.update(mask="heart", mask_mode="inside", bw=True, pack="hearts")
+            er = rules.section("emoji")
+            it.update(mask="heart", mask_mode="inside", bw=bool(er.get("hearts_bw", True)))
+            if er.get("hearts_separate", True):
+                it["pack"] = "hearts"
         if d.get("text"):
             it["text"] = {"content": d["text"], "size": 42, "color": "#ffffff", "stroke": 3, "stroke_color": "#000000",
                           "pos": "center", "align": "center"}
