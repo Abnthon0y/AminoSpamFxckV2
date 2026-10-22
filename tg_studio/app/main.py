@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from . import config, rules
-from .ai.providers import PROVIDER_INFO, AIClient, AIError, generate_image, test_connection
+from .ai.providers import PROVIDER_INFO, AIClient, AIError, diagnose, generate_image, test_connection
 from .config import LUT_DIR, OUTPUT_DIR, STATIC_DIR, UPLOAD_DIR
 from .emoji import composer, pixelgen
 from .emoji.convert import frames_to_gif
@@ -46,6 +46,11 @@ async def _ai_err(_, e):
 @app.exception_handler(TGError)
 async def _tg_err(_, e):
     return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@app.exception_handler(Exception)
+async def _any_err(_, e):
+    return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
 @app.exception_handler(ValueError)
@@ -104,6 +109,11 @@ async def ai_test():
     t = time.time()
     reply = await test_connection()
     return {"reply": reply[:200], "seconds": round(time.time() - t, 1)}
+
+
+@app.post("/api/ai/diagnose")
+async def ai_diagnose():
+    return {"checks": await diagnose()}
 
 
 @app.get("/api/fonts")

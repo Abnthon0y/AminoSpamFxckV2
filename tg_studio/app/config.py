@@ -23,6 +23,7 @@ DEFAULTS: dict = {
         # pollinations | claude_cli | ollama | gemini | openai_compat | anthropic | none
         "provider": "pollinations",
         "vision": False,
+        "proxy": "",  # http://127.0.0.1:10809 или socks5://127.0.0.1:1080 — если сервисы заблокированы
         "providers": {
             "pollinations": {"base_url": "https://text.pollinations.ai/openai", "model": "openai", "api_key": ""},
             "claude_cli": {"command": "claude", "model": ""},

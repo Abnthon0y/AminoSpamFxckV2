@@ -45,7 +45,13 @@ export async function initSettings(root) {
         <div id="stFields" class="stack" style="margin-top:12px"></div>
         <div class="help" id="stHelp" style="margin-top:12px"></div>
         <label class="check" style="margin-top:12px"><input type="checkbox" id="stVision"> Отправлять картинки нейросети (vision) — для умной раскладки и подбора эмодзи</label>
-        <div class="row end"><button class="btn" id="stTest" data-busy="Проверяю…">🔌 Проверить</button><button class="btn primary" id="stSaveAI">Сохранить</button></div>
+        <label class="field" style="margin-top:12px"><span>Прокси (если сайты нейросетей заблокированы) — необязательно</span>
+          <input type="text" id="stProxy" placeholder="http://127.0.0.1:10809 или socks5://127.0.0.1:1080"></label>
+        <div class="muted small" style="margin-top:4px">Адрес берётся из твоего VPN-клиента (v2rayN, Hiddify, Clash и т.п. — раздел «прокси/порт»). Если VPN включён на весь компьютер — оставь пустым.</div>
+        <div class="row end"><button class="btn ghost" id="stDiag" data-busy="Проверяю всё…">🩺 Диагностика</button>
+          <button class="btn" id="stTest" data-busy="Проверяю…">🔌 Проверить</button><button class="btn primary" id="stSaveAI">Сохранить</button></div>
+        <div id="stDiagOut" class="stack" style="gap:6px;margin-top:10px"></div>
+        <pre class="out" id="stTestOut" hidden></pre>
       </div>
       <div class="card"><h3>🎨 Нейросеть-художник <span class="hint">для баннеров, артов и пиксель-GIF</span></h3>
         <div class="kv">
@@ -109,10 +115,27 @@ export async function initSettings(root) {
   $("#stHeadless").checked = !!S.translations?.headless;
 
   $("#stSaveAI").onclick = (e) => busy(e.currentTarget, saveAI);
-  $("#stTest").onclick = (e) => busy(e.currentTarget, async () => {
+  $("#stProxy").value = S.ai.proxy || "";
+  $("#stTest").onclick = async (e) => {
+    const out = $("#stTestOut");
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    out.hidden = false;
+    out.textContent = "⏳ Отправляю тестовый запрос… (бесплатные сервисы могут думать до минуты)";
+    try {
+      await saveAI(true);
+      const r = await api("/api/ai/test", {});
+      out.textContent = `✅ Работает! Ответ за ${r.seconds} c: «${r.reply.trim()}»`;
+    } catch (err) {
+      out.textContent = "❌ " + err.message;  // ошибка остаётся на экране, а не исчезает через 7 секунд
+    } finally { btn.disabled = false; }
+  };
+  $("#stDiag").onclick = (e) => busy(e.currentTarget, async () => {
     await saveAI(true);
-    const r = await api("/api/ai/test", {});
-    toast(`ИИ ответил за ${r.seconds} c: «${r.reply.trim()}»`, "ok");
+    const r = await api("/api/ai/diagnose", {});
+    $("#stDiagOut").innerHTML = r.checks.map((c) =>
+      `<div class="small" style="display:flex;align-items:flex-start;gap:8px"><b style="min-width:16px">${c.ok ? "✅" : "❌"}</b>
+        <div><b>${esc(c.name)}</b> — <span class="muted">${esc(c.detail)}</span></div></div>`).join("");
   });
   $("#stSaveImg").onclick = (e) => busy(e.currentTarget, async () => {
     await api("/api/settings", { image_ai: { provider: $("#stImgProv").value, a1111_url: $("#stA1111").value, pollinations_model: $("#stPolModel").value } });
@@ -160,7 +183,7 @@ async function saveAI(silent) {
   const vals = {};
   $$("#stFields [data-k]").forEach((i) => (vals[i.dataset.k] = i.value));
   S.ai.providers[p] = { ...S.ai.providers[p], ...vals };
-  const r = await api("/api/settings", { ai: { provider: p, vision: $("#stVision").checked, providers: { [p]: vals } } });
+  const r = await api("/api/settings", { ai: { provider: p, vision: $("#stVision").checked, proxy: $("#stProxy").value.trim(), providers: { [p]: vals } } });
   S = r.settings;
   if (!silent) toast("Нейросеть сохранена ✓", "ok");
   window.dispatchEvent(new Event("tgs:status"));
